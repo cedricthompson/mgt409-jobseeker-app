@@ -64,6 +64,7 @@ export async function adzuna(p) {
       id: `adzuna-${j.id}`, title: j.title, company: j.company?.display_name, city: j.location?.display_name,
       lat: j.latitude ?? null, lng: j.longitude ?? null, work_mode: "onsite",
       pay_min: j.salary_min ? Math.round(j.salary_min) : null, pay_max: j.salary_max ? Math.round(j.salary_max) : null,
+      pay_estimated: String(j.salary_is_predicted) === "1", // Adzuna's own estimate, not posted by the employer
       summary: (j.description || "").slice(0, 300), url: j.redirect_url, source: "Adzuna",
     }));
   } catch {

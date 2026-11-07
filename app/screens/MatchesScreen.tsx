@@ -3,7 +3,7 @@ import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleS
 import { post, Prefs, Profile } from '../api';
 import { colors, radius, space, type } from '../theme';
 
-type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_text?: string; url?: string; source?: string };
+type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
 type Part = { score: number | null; note: string };
 type Card = {
@@ -95,7 +95,10 @@ export default function MatchesScreen({ profile, prefs, onBack }: { profile: Pro
                   <Text style={styles.jobTitle} role="heading" aria-level={2}>{job.title}</Text>
                   <Text style={type.small}>{[job.company, job.city].filter(Boolean).join(' · ')}</Text>
                   <Text style={type.small}>
-                    {job.pay_min ? `${money(job.pay_min)} – ${money(job.pay_max)}` : job.pay_text || 'Pay not listed'}
+                    {job.pay_min
+                      ? job.pay_min === job.pay_max ? money(job.pay_min) : `${money(job.pay_min)} – ${money(job.pay_max)}`
+                      : job.pay_text || 'Pay not listed'}
+                    {job.pay_estimated ? ' (estimated)' : ''}
                     {job.source ? ` · ${job.source}` : ''}
                   </Text>
                   <Text style={[styles.fit, fit === 'stretch' && { color: colors.muted }]}>{FIT_LABEL[fit]}</Text>
@@ -154,6 +157,12 @@ export default function MatchesScreen({ profile, prefs, onBack }: { profile: Pro
             </View>
           );
         })}
+
+        {matches.some((m) => m.job.source === 'Adzuna') && (
+          <Pressable onPress={() => Linking.openURL('https://www.adzuna.com')} accessibilityRole="link" accessibilityLabel="Jobs by Adzuna">
+            <Text style={styles.credit}>Jobs by Adzuna</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -188,4 +197,5 @@ const styles = StyleSheet.create({
   tipTitle: { fontSize: 16, fontWeight: '700', color: colors.red },
   apply: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
   applyText: { color: colors.white, fontSize: 18, fontWeight: '700' },
+  credit: { ...type.small, color: colors.blue, textDecorationLine: 'underline', textAlign: 'center', paddingVertical: space.md },
 });
