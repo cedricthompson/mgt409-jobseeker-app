@@ -2,7 +2,12 @@ import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } fr
 import { colors, radius, space, type } from '../theme';
 
 // Photos of job seekers for the opening page. Each needs alt text for screen readers.
-const PHOTOS: { source: number; alt: string }[] = [];
+// Sources are listed in assets/people/CREDITS.md.
+const PHOTOS: { source: number; alt: string }[] = [
+  { source: require('../assets/people/food-service.jpg'), alt: 'A woman in an apron and gloves cooking at a food counter' },
+  { source: require('../assets/people/construction.jpg'), alt: 'A construction worker in a yellow hard hat taking a break on site' },
+  { source: require('../assets/people/office.jpg'), alt: 'A man working on a laptop at his desk' },
+];
 
 const STEPS = [
   { title: 'Share your background', text: 'Upload, photograph, paste, or speak your resume.' },
@@ -68,8 +73,8 @@ const styles = StyleSheet.create({
   logo: { width: 180, height: 180, alignSelf: 'center' },
   title: { ...type.title, textAlign: 'center', color: colors.red },
   lead: { ...type.body, textAlign: 'center', color: colors.muted },
-  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, justifyContent: 'center' },
-  photo: { width: 150, height: 150, borderRadius: radius, flexGrow: 1, maxWidth: 190 },
+  photoGrid: { flexDirection: 'row', gap: space.sm },
+  photo: { flex: 1, height: 170, borderRadius: radius },
   cta: { backgroundColor: colors.blue, minHeight: 56, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: colors.white, fontSize: 20, fontWeight: '700' },
   steps: { gap: space.md, backgroundColor: colors.tint, borderRadius: radius, padding: space.lg },
