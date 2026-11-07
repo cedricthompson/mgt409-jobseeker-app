@@ -27,9 +27,13 @@ feature that the agents read from and write to.
 
 ## Job data
 
-- **Test dataset:** [`server/data/sample-jobs.json`](server/data/sample-jobs.json) has 24 realistic sample jobs in Columbus OH, Baltimore MD, Denver CO, and remote. Company names are fictional and marked "(sample)". Pay ranges are approximate.
-- **Live remote jobs:** pulled from the free [Remotive](https://remotive.com) API (no key) when the applicant is open to remote work. If it's unreachable, the app uses the sample data only.
-- Sources that need their own keys (USAJobs, Adzuna, LinkedIn) are not used, per the course key rules.
+- **Test dataset:** [`server/data/sample-jobs.json`](server/data/sample-jobs.json) has 32 realistic sample jobs in Washington DC (including federal and cleared roles), Columbus OH, Baltimore MD, Denver CO, and remote. Company names are fictional and marked "(sample)". Pay ranges are approximate. The app always works with this data alone.
+- **Live sources (optional, in [`server/sources.js`](server/sources.js)):**
+  - [USAJobs](https://developer.usajobs.gov): federal jobs with clearance requirements. Set `USAJOBS_API_KEY` and `USAJOBS_EMAIL`.
+  - [Adzuna](https://developer.adzuna.com): jobs from many boards and company sites. Set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`.
+  - [Remotive](https://remotive.com): remote jobs, no key needed.
+- **To switch:** leave the optional keys blank to use only the sample data, or fill them in to add live jobs. A source that is missing a key or fails is skipped.
+- Indeed and LinkedIn job data are not used: neither offers a public jobs API, and scraping breaks their terms.
 
 ## Setup
 
