@@ -6,6 +6,7 @@ import { gap } from "./agents/gap.js";
 import { importResume } from "./agents/import.js";
 import { profileChat } from "./agents/orchestrator.js";
 import { matchJobs } from "./agents/matcher.js";
+import { scorecard } from "./agents/scorecard.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -32,6 +33,7 @@ const routes = {
   "POST /api/import": async (req) => importResume(await readJson(req)),
   "POST /api/profile-chat": async (req) => profileChat(await readJson(req)),
   "POST /api/match": async (req) => matchJobs(await readJson(req)),
+  "POST /api/scorecard": async (req) => scorecard(await readJson(req)),
 };
 
 createServer(async (req, res) => {

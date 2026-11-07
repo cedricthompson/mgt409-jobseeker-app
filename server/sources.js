@@ -31,7 +31,7 @@ async function usajobsSearch(keyword, city, key, email) {
       const yearly = pay.RateIntervalCode === "PA";
       return {
         id: `usajobs-${d.PositionID}`, title: d.PositionTitle, company: d.OrganizationName,
-        city: d.PositionLocationDisplay, work_mode: d.UserArea?.Details?.TeleworkEligible ? "hybrid" : "onsite",
+        city: d.PositionLocationDisplay, lat: d.PositionLocation?.[0]?.Latitude ?? null, lng: d.PositionLocation?.[0]?.Longitude ?? null, work_mode: d.UserArea?.Details?.TeleworkEligible ? "hybrid" : "onsite",
         pay_min: yearly ? Number(pay.MinimumRange) : null, pay_max: yearly ? Number(pay.MaximumRange) : null,
         clearance: d.UserArea?.Details?.SecurityClearance || null,
         summary: (d.QualificationSummary || "").slice(0, 300), url: d.PositionURI, source: "USAJobs",
