@@ -31,3 +31,5 @@ feature that the agents read from and write to.
 2. Requires Node 21.7 or newer. The server has no dependencies.
 3. `cd server && npm run check` confirms the key works.
 4. `npm start` runs the API at http://localhost:3001.
+5. In a second terminal: `cd app && npm install && npm run web` opens the app in your browser.
+   On a phone, run `npm start` and scan the QR code with the Expo Go app.
