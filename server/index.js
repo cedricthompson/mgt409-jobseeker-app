@@ -68,13 +68,13 @@ function serveWeb(req, res) {
   let file = join(WEB_DIR, path);
   if (!file.startsWith(WEB_DIR) || !existsSync(file) || statSync(file).isDirectory()) file = join(WEB_DIR, "index.html");
   res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream" });
-  res.end(readFileSync(file));
+  res.end(req.method === "HEAD" ? undefined : readFileSync(file));
 }
 
 createServer(async (req, res) => {
   if (req.method === "OPTIONS") return send(res, 204, {});
   const path = req.url.split("?")[0];
-  if (!path.startsWith("/api/")) return req.method === "GET" ? serveWeb(req, res) : send(res, 404, { error: "Not found" });
+  if (!path.startsWith("/api/")) return ["GET", "HEAD"].includes(req.method) ? serveWeb(req, res) : send(res, 404, { error: "Not found" });
 
   const handler = routes[`${req.method} ${path}`];
   if (!handler) return send(res, 404, { error: "Not found" });
