@@ -1,6 +1,7 @@
 // Live job sources. Each is optional: if its key is missing or the request fails,
 // it returns [] and the app falls back to the sample dataset.
 // Every source returns jobs in the same shape as data/sample-jobs.json.
+import "./env.js";
 
 const LIMIT = 8;
 const timeout = () => AbortSignal.timeout(6000);
@@ -8,10 +9,18 @@ const firstRole = (p) => (p.target_roles || [])[0] || (p.experience || [])[0]?.t
 const wantsRemote = (p) => /remote|any|hybrid|open/i.test(p.work_mode || "");
 
 // USAJobs (federal jobs). Free key: https://developer.usajobs.gov/apirequest/
+// Searches both the target role and the most recent job title, so entry-level roles show up too.
 export async function usajobs(p) {
   const { USAJOBS_API_KEY: key, USAJOBS_EMAIL: email } = process.env;
   if (!key || !email) return [];
-  const qs = new URLSearchParams({ Keyword: firstRole(p), LocationName: p.city || "", ResultsPerPage: String(LIMIT) });
+  const keywords = [...new Set([(p.target_roles || [])[0], (p.experience || [])[0]?.title].filter(Boolean))];
+  const results = await Promise.all(keywords.map((k) => usajobsSearch(k, p.city, key, email)));
+  const seen = new Set();
+  return results.flat().filter((j) => !seen.has(j.id) && seen.add(j.id));
+}
+
+async function usajobsSearch(keyword, city, key, email) {
+  const qs = new URLSearchParams({ Keyword: keyword, LocationName: city || "", ResultsPerPage: String(LIMIT) });
   try {
     const res = await fetch(`https://data.usajobs.gov/api/search?${qs}`, {
       headers: { Host: "data.usajobs.gov", "User-Agent": email, "Authorization-Key": key }, signal: timeout(),

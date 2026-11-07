@@ -1,12 +1,7 @@
-// Loads .env (repo folder first, then one level up) and calls the course model via Portkey.
-import { existsSync, mkdirSync, appendFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-for (const p of [resolve(repoRoot, ".env"), resolve(repoRoot, "..", ".env")]) {
-  if (existsSync(p)) { process.loadEnvFile(p); break; }
-}
+// Calls the course model via Portkey and tracks token use.
+import { mkdirSync, appendFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { repoRoot } from "./env.js";
 
 const BASE_URL = process.env.PORTKEY_BASE_URL || "https://api.portkey.ai/v1";
 const MODEL = process.env.MODEL || "gpt-6-luna";

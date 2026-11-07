@@ -14,15 +14,15 @@ const wantsRemote = (p) => /remote|any|hybrid|open/i.test(p.work_mode || "");
 // Metro areas that cross state lines.
 const METRO = { DC: ["DC", "MD", "VA"] };
 
-function localJobs(p, haveLive = false) {
+function localJobs(p) {
   const city = (p.city || "").toLowerCase().split(",")[0].trim();
   const st = state(p.city || "") || (/washington|\bdc\b/i.test(p.city || "") ? "DC" : undefined);
   const states = METRO[st] || [st];
   const near = SAMPLE.filter((j) => j.city !== "Remote" &&
     ((city && j.city.toLowerCase().startsWith(city)) || (st && states.includes(state(j.city)))));
   const remote = wantsRemote(p) ? SAMPLE.filter((j) => j.work_mode === "remote") : [];
-  // If the city is not in the sample data and no live jobs came back, show all samples and let the agent rank them.
-  return near.length ? [...near, ...remote] : haveLive ? remote : SAMPLE;
+  // If the city is not in the sample data, show all samples and let the agent rank them.
+  return near.length ? [...near, ...remote] : SAMPLE;
 }
 
 const SYSTEM = `You are the Job Matcher agent of a job search app. Rank the jobs that best fit the applicant.
@@ -38,8 +38,10 @@ const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.
   summary: j.source ? j.summary : undefined });
 
 export async function matchJobs({ profile = {}, session, prefs }) {
+  // Real listings come first. Sample jobs are fictional, so they're only used when
+  // no live source returns anything (no keys set, offline, or no results).
   const live = await liveJobs(profile);
-  const jobs = [...localJobs(profile, live.length > 0), ...live];
+  const jobs = live.length ? live : localJobs(profile);
   const byId = Object.fromEntries(jobs.map((j) => [j.id, j]));
 
   const { text } = await chat(
@@ -50,5 +52,5 @@ export async function matchJobs({ profile = {}, session, prefs }) {
     { json: true, agent: "matcher", session }
   );
   const { matches = [] } = JSON.parse(text);
-  return { considered: jobs.length, matches: matches.filter((m) => byId[m.id]).map((m) => ({ ...m, job: byId[m.id] })) };
+  return { considered: jobs.length, data: live.length ? "live" : "sample", matches: matches.filter((m) => byId[m.id]).map((m) => ({ ...m, job: byId[m.id] })) };
 }
