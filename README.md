@@ -25,6 +25,12 @@ feature that the agents read from and write to.
 - **Server:** small Node API that calls the course model (`gpt-6-luna` via Portkey) so the key never reaches the client
 - **Data:** O\*NET, BLS (OEWS wages, JOLTS, Employee Tenure), USAJobs / Adzuna job listings, and a maps API for commute times
 
+## Job data
+
+- **Test dataset:** [`server/data/sample-jobs.json`](server/data/sample-jobs.json) has 24 realistic sample jobs in Columbus OH, Baltimore MD, Denver CO, and remote. Company names are fictional and marked "(sample)". Pay ranges are approximate.
+- **Live remote jobs:** pulled from the free [Remotive](https://remotive.com) API (no key) when the applicant is open to remote work. If it's unreachable, the app uses the sample data only.
+- Sources that need their own keys (USAJobs, Adzuna, LinkedIn) are not used, per the course key rules.
+
 ## Setup
 
 1. Copy `.env.example` to `.env` and add your `PORTKEY_API_KEY`.
