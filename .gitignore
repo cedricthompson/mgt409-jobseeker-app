@@ -13,3 +13,4 @@ build/
 # OS / editor
 .DS_Store
 *.log
+server/logs/

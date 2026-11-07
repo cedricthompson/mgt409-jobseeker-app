@@ -1,6 +1,7 @@
 // API server. No dependencies: uses Node's built-in http module.
 import { createServer } from "node:http";
-import { chat, usage } from "./llm.js";
+import { usage } from "./llm.js";
+import { intake } from "./agents/intake.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -22,10 +23,7 @@ async function readJson(req) {
 const routes = {
   "GET /api/health": async () => ({ ok: true }),
   "GET /api/usage": async () => usage,
-  "POST /api/chat": async (req) => {
-    const { messages } = await readJson(req);
-    return chat(messages);
-  },
+  "POST /api/intake": async (req) => intake(await readJson(req)),
 };
 
 createServer(async (req, res) => {
