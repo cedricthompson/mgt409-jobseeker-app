@@ -16,7 +16,7 @@ const STEPS = [
   { title: 'Track every application', text: 'Stay organized from first click to job offer.' },
 ];
 
-export default function WelcomeScreen({ onStart }: { onStart: () => void }) {
+export default function WelcomeScreen({ onStart, onTracker }: { onStart: () => void; onTracker: () => void }) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -50,6 +50,9 @@ export default function WelcomeScreen({ onStart }: { onStart: () => void }) {
         >
           <Text style={styles.ctaText}>Get started</Text>
         </Pressable>
+        <Pressable onPress={onTracker} accessibilityRole="button" accessibilityLabel="My applications" style={styles.link}>
+          <Text style={styles.linkText}>My applications</Text>
+        </Pressable>
 
         <View style={styles.steps}>
           {STEPS.map((s, i) => (
@@ -76,6 +79,8 @@ const styles = StyleSheet.create({
   photoGrid: { flexDirection: 'row', gap: space.sm },
   photo: { flex: 1, height: 170, borderRadius: radius },
   cta: { backgroundColor: colors.blue, minHeight: 56, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
+  link: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  linkText: { fontSize: 18, fontWeight: '600', color: colors.blue, textDecorationLine: 'underline' },
   ctaText: { color: colors.white, fontSize: 20, fontWeight: '700' },
   steps: { gap: space.md, backgroundColor: colors.tint, borderRadius: radius, padding: space.lg },
   step: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },

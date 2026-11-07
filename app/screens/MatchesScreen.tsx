@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { post, Prefs, Profile } from '../api';
 import { colors, radius, space, type } from '../theme';
+import { useTracker } from '../tracker';
 
 type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
@@ -30,7 +31,10 @@ function Bar({ label, value }: { label: string; value?: number | null }) {
   );
 }
 
-export default function MatchesScreen({ profile, prefs, onBack }: { profile: Profile; prefs: Prefs; onBack: () => void }) {
+export default function MatchesScreen({ profile, prefs, onBack, onTracker }: {
+  profile: Profile; prefs: Prefs; onBack: () => void; onTracker: () => void;
+}) {
+  const tracker = useTracker();
   const [step, setStep] = useState('Finding jobs near you…');
   const [matches, setMatches] = useState<Match[]>([]);
   const [cards, setCards] = useState<Record<string, Card>>({});
@@ -56,6 +60,10 @@ export default function MatchesScreen({ profile, prefs, onBack }: { profile: Pro
     })();
   }, []);
 
+  // Saving keeps a copy of the scorecard so the outcome can later be compared with the prediction.
+  const save = (id: string, job: Job, c?: Card) =>
+    tracker.add(id, job, c ? { overall: c.overall, predictions: c.predictions } : undefined);
+
   const sorted = [...matches].sort((a, b) => (cards[b.id]?.overall ?? -1) - (cards[a.id]?.overall ?? -1));
 
   return (
@@ -64,7 +72,12 @@ export default function MatchesScreen({ profile, prefs, onBack }: { profile: Pro
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to profile chat" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
-        <Text style={styles.title} role="heading" aria-level={1}>Your job matches</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} role="heading" aria-level={1}>Your job matches</Text>
+          <Pressable onPress={onTracker} accessibilityRole="button" accessibilityLabel={`My applications, ${tracker.items.length} saved`} style={styles.back}>
+            <Text style={styles.backText}>My applications ({tracker.items.length}) ›</Text>
+          </Pressable>
+        </View>
 
         <View aria-live="polite">
           {step ? <View style={styles.row}><ActivityIndicator color={colors.blue} /><Text style={type.body}>{step}</Text></View> : null}
@@ -144,16 +157,28 @@ export default function MatchesScreen({ profile, prefs, onBack }: { profile: Pro
                 </View>
               )}
 
-              {job.url && (
+              <View style={styles.actions}>
                 <Pressable
-                  style={styles.apply}
-                  onPress={() => Linking.openURL(job.url!)}
-                  accessibilityRole="link"
-                  accessibilityLabel={`View and apply for ${job.title}`}
+                  style={[styles.saveBtn, tracker.has(id) && { borderColor: colors.line }]}
+                  onPress={() => save(id, job, c)}
+                  disabled={tracker.has(id)}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: tracker.has(id) }}
+                  accessibilityLabel={tracker.has(id) ? `${job.title} is in your tracker` : `Save ${job.title} to my applications`}
                 >
-                  <Text style={styles.applyText}>View and apply</Text>
+                  <Text style={[styles.saveText, tracker.has(id) && { color: colors.muted }]}>{tracker.has(id) ? 'Saved ✓' : 'Save'}</Text>
                 </Pressable>
-              )}
+                {job.url && (
+                  <Pressable
+                    style={[styles.apply, { flex: 1 }]}
+                    onPress={() => { save(id, job, c); Linking.openURL(job.url!); }}
+                    accessibilityRole="link"
+                    accessibilityLabel={`View and apply for ${job.title}. It will be saved to your tracker.`}
+                  >
+                    <Text style={styles.applyText}>View and apply</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
           );
         })}
@@ -195,6 +220,10 @@ const styles = StyleSheet.create({
   note: { ...type.small, fontSize: 15 },
   tip: { backgroundColor: colors.tint, borderLeftWidth: 4, borderLeftColor: colors.red, padding: space.md, borderRadius: radius, gap: 4 },
   tipTitle: { fontSize: 16, fontWeight: '700', color: colors.red },
+  titleRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: space.sm },
+  actions: { flexDirection: 'row', gap: space.sm },
+  saveBtn: { minHeight: 52, minWidth: 100, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
+  saveText: { fontSize: 18, fontWeight: '700', color: colors.blue },
   apply: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
   applyText: { color: colors.white, fontSize: 18, fontWeight: '700' },
   credit: { ...type.small, color: colors.blue, textDecorationLine: 'underline', textAlign: 'center', paddingVertical: space.md },
