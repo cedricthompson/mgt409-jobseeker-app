@@ -4,6 +4,7 @@ import { usage } from "./llm.js";
 import { intake } from "./agents/intake.js";
 import { gap } from "./agents/gap.js";
 import { importResume } from "./agents/import.js";
+import { profileChat } from "./agents/orchestrator.js";
 
 const PORT = process.env.PORT || 3001;
 
@@ -28,6 +29,7 @@ const routes = {
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
   "POST /api/import": async (req) => importResume(await readJson(req)),
+  "POST /api/profile-chat": async (req) => profileChat(await readJson(req)),
 };
 
 createServer(async (req, res) => {

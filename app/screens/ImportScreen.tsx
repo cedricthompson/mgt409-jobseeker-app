@@ -6,14 +6,14 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../theme';
+import { API_URL, session, Prefs, Profile } from '../api';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
-const session = Math.random().toString(36).slice(2);
 
-type Profile = Record<string, unknown>;
 type ImportResult = { profile: Profile; summary: string; missing: string[] };
 
-export default function ImportScreen({ onBack }: { onBack: () => void }) {
+export default function ImportScreen({ onBack, onContinue }: {
+  onBack: () => void; onContinue: (p: Profile, prefs: Prefs) => void;
+}) {
   const [resumeText, setResumeText] = useState('');
   const [plainLanguage, setPlainLanguage] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -135,6 +135,14 @@ export default function ImportScreen({ onBack }: { onBack: () => void }) {
                   {result.missing.map((m) => <Text key={m} style={styles.body}>• {m}</Text>)}
                 </>
               )}
+              <Pressable
+                style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+                onPress={() => onContinue(result.profile, { plain_language: plainLanguage })}
+                accessibilityRole="button"
+                accessibilityLabel="Continue to finish my profile"
+              >
+                <Text style={styles.buttonText}>Continue</Text>
+              </Pressable>
             </View>
           )}
         </View>
