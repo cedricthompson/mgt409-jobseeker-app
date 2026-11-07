@@ -1,8 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
-  ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
+  ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 const session = Math.random().toString(36).slice(2);
@@ -17,13 +19,13 @@ export default function App() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
 
-  async function importText() {
+  async function runImport(kind: 'text' | 'pdf' | 'image', data: string, mimeType?: string) {
     setLoading(true); setError(''); setResult(null);
     try {
       const res = await fetch(`${API_URL}/api/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session, kind: 'text', data: resumeText, prefs: { plain_language: plainLanguage } }),
+        body: JSON.stringify({ session, kind, data, mimeType, prefs: { plain_language: plainLanguage } }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
@@ -35,13 +37,53 @@ export default function App() {
     }
   }
 
+  async function pickPdf() {
+    const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', base64: true });
+    const file = r.assets?.[0];
+    if (r.canceled || !file?.base64) return;
+    runImport('pdf', file.base64);
+  }
+
+  async function pickPhoto(useCamera: boolean) {
+    if (useCamera && Platform.OS !== 'web') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) { setError('Camera permission is needed to take a photo of your resume.'); return; }
+    }
+    const options = { mediaTypes: ['images'] as ImagePicker.MediaType[], base64: true, quality: 0.6 };
+    const r = useCamera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+    const img = r.assets?.[0];
+    if (r.canceled || !img?.base64) return;
+    runImport('image', img.base64, img.mimeType ?? 'image/jpeg');
+  }
+
+  const actionButton = (label: string, hint: string, onPress: () => void) => (
+    <Pressable
+      key={label}
+      style={({ pressed }) => [styles.secondaryButton, loading && styles.buttonDisabled, pressed && styles.buttonPressed]}
+      onPress={onPress}
+      disabled={loading}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={{ disabled: loading }}
+    >
+      <Text style={styles.secondaryButtonText}>{label}</Text>
+    </Pressable>
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title} role="heading" aria-level={1}>Build your job profile</Text>
         <Text style={styles.body}>
-          Paste your resume or LinkedIn profile below. You can also use the microphone on your keyboard to speak it.
+          Upload your resume, take a photo of it, or paste or speak it below. LinkedIn tip: on your profile, choose More, then Save to PDF.
         </Text>
+
+        <View style={styles.buttonRow}>
+          {actionButton('Upload PDF', 'Choose a resume or LinkedIn PDF from your device', pickPdf)}
+          {actionButton('Take a photo', 'Use your camera to photograph a printed resume', () => pickPhoto(true))}
+          {actionButton('Choose a photo', 'Pick a photo of your resume from your device', () => pickPhoto(false))}
+        </View>
 
         <TextInput
           style={styles.input}
@@ -66,7 +108,7 @@ export default function App() {
 
         <Pressable
           style={({ pressed }) => [styles.button, (!resumeText.trim() || loading) && styles.buttonDisabled, pressed && styles.buttonPressed]}
-          onPress={importText}
+          onPress={() => runImport('text', resumeText)}
           disabled={!resumeText.trim() || loading}
           accessibilityRole="button"
           accessibilityLabel="Build my profile"
@@ -114,6 +156,12 @@ const styles = StyleSheet.create({
   buttonDisabled: { backgroundColor: '#6B7A99' },
   buttonPressed: { opacity: 0.85 },
   buttonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  secondaryButton: {
+    minHeight: 52, borderRadius: 8, borderWidth: 2, borderColor: '#0B3D91', backgroundColor: '#FFFFFF',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, flexGrow: 1,
+  },
+  secondaryButtonText: { color: '#0B3D91', fontSize: 18, fontWeight: '700' },
   card: { borderWidth: 2, borderColor: '#0B3D91', borderRadius: 8, padding: 16, gap: 8 },
   error: { fontSize: 18, color: '#B00020' },
 });

@@ -10,10 +10,10 @@ ${SAFETY}
 Reply ONLY with JSON: {"profile": ${PROFILE_SHAPE}, "summary": string, "missing": [string]}
 Use null for unknown fields. "summary" is 1-2 sentences confirming what you found. "missing" lists important fields to ask about next.`;
 
-export async function importResume({ kind, data, session, prefs }) {
+export async function importResume({ kind, data, mimeType = "image/jpeg", session, prefs }) {
   let part;
   if (kind === "text") part = { type: "text", text: `Resume text:\n${data}` };
-  else if (kind === "image") part = { type: "image_url", image_url: { url: `data:image/jpeg;base64,${data}` } };
+  else if (kind === "image") part = { type: "image_url", image_url: { url: `data:${mimeType};base64,${data}` } };
   else if (kind === "pdf") part = { type: "file", file: { filename: "resume.pdf", file_data: `data:application/pdf;base64,${data}` } };
   else throw new Error(`Unsupported import kind: ${kind}. Use text, image, or pdf.`);
 
