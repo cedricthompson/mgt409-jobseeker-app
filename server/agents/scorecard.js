@@ -3,7 +3,7 @@
 // Part 2 (one model call for all jobs): skills score and outcome estimates
 //   (interview, hire, promotion within a year, still employed at 12/18/24 months), each with a reason.
 import { chat } from "../llm.js";
-import { geocode, commuteMinutes } from "../geo.js";
+import { geocode, commute } from "../geo.js";
 import { SAFETY, accessibility } from "./common.js";
 
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
@@ -17,11 +17,13 @@ const clearanceRank = (s) => {
   return 0;
 };
 
-function commuteScore(job, minutes, max = 30) {
+const MODE_WORDS = { drive: "driving", transit: "by public transit", bike: "by bike", walk: "walking" };
+function commuteScore(job, { minutes, method }, max = 30, mode = "drive") {
   if (job.work_mode === "remote") return { score: 100, note: "Remote job: no commute." };
   if (minutes == null) return { score: null, note: "Commute unknown (job location not specific)." };
   const score = minutes <= max ? 100 : clamp(100 - ((minutes - max) / max) * 100);
-  return { score, note: `About ${minutes} min each way; your limit is ${max}.` };
+  const how = `${method === "routed" ? "" : "About "}${minutes} min each way ${MODE_WORDS[mode] || "driving"}${method === "routed" ? " (real schedule)" : " (estimate)"}`;
+  return { score, note: `${how}; your limit is ${max}.` };
 }
 
 function payScore(job, target) {
@@ -72,12 +74,13 @@ Reply ONLY with JSON: {"jobs": [{"id": string, "skills": {"score": number, "note
 
 export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
   const home = await geocode(profile.city);
+  const mode = profile.commute_mode || "drive";
   const coded = await Promise.all(jobs.slice(0, 8).map(async (job) => {
     const where = job.lat != null ? { lat: job.lat, lng: job.lng } : await geocode(job.city);
     return {
       job,
       parts: {
-        commute: commuteScore(job, commuteMinutes(home, where), Number(profile.commute_minutes) || 30),
+        commute: commuteScore(job, await commute(home, where, mode), Number(profile.commute_minutes) || 30, mode),
         pay: payScore(job, Number(profile.target_pay)),
         credentials: credentialScore(job, profile),
         experience: experienceScore(job, profile),
