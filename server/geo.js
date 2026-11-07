@@ -36,18 +36,18 @@ const MODES = {
 // waiting, and transfers. Driving is slower in dense, congested metros. "transit" as the default mode
 // means most workers there without a stated preference are assumed to ride transit.
 const METROS = [
-  { name: "Washington, DC", lat: 38.9, lng: -77.04, radius: 55, system: "Metro (WMATA)", transitKmh: 24, driveKmh: 30, defaultMode: "transit" },
-  { name: "New York City", lat: 40.73, lng: -73.94, radius: 50, system: "subway and bus (MTA)", transitKmh: 22, driveKmh: 22, defaultMode: "transit" },
-  { name: "Chicago", lat: 41.88, lng: -87.63, radius: 45, system: "L and bus (CTA)", transitKmh: 22, driveKmh: 30, defaultMode: "transit" },
-  { name: "Boston", lat: 42.36, lng: -71.06, radius: 40, system: "T (MBTA)", transitKmh: 21, driveKmh: 28, defaultMode: "transit" },
-  { name: "San Francisco Bay Area", lat: 37.77, lng: -122.42, radius: 50, system: "BART and Muni", transitKmh: 24, driveKmh: 30, defaultMode: "transit" },
-  { name: "Philadelphia", lat: 39.95, lng: -75.17, radius: 40, system: "SEPTA", transitKmh: 20, driveKmh: 32, defaultMode: "drive" },
-  { name: "Baltimore", lat: 39.29, lng: -76.61, radius: 35, system: "MTA Maryland", transitKmh: 18, driveKmh: 38, defaultMode: "drive" },
-  { name: "Atlanta", lat: 33.75, lng: -84.39, radius: 50, system: "MARTA", transitKmh: 20, driveKmh: 38, defaultMode: "drive" },
-  { name: "Seattle", lat: 47.61, lng: -122.33, radius: 45, system: "Link and King County Metro", transitKmh: 21, driveKmh: 32, defaultMode: "drive" },
-  { name: "Los Angeles", lat: 34.05, lng: -118.24, radius: 70, system: "LA Metro", transitKmh: 18, driveKmh: 35, defaultMode: "drive" },
-  { name: "Denver", lat: 39.74, lng: -104.99, radius: 40, system: "RTD", transitKmh: 19, driveKmh: 42, defaultMode: "drive" },
-  { name: "Columbus", lat: 39.96, lng: -83.0, radius: 35, system: "COTA bus", transitKmh: 15, driveKmh: 45, defaultMode: "drive" },
+  { name: "Washington, DC", search: "Washington, DC", lat: 38.9, lng: -77.04, radius: 55, system: "Metro (WMATA)", transitKmh: 24, driveKmh: 30, defaultMode: "transit" },
+  { name: "New York City", search: "New York, NY", lat: 40.73, lng: -73.94, radius: 50, system: "subway and bus (MTA)", transitKmh: 22, driveKmh: 22, defaultMode: "transit" },
+  { name: "Chicago", search: "Chicago, IL", lat: 41.88, lng: -87.63, radius: 45, system: "L and bus (CTA)", transitKmh: 22, driveKmh: 30, defaultMode: "transit" },
+  { name: "Boston", search: "Boston, MA", lat: 42.36, lng: -71.06, radius: 40, system: "T (MBTA)", transitKmh: 21, driveKmh: 28, defaultMode: "transit" },
+  { name: "San Francisco Bay Area", search: "San Francisco, CA", lat: 37.77, lng: -122.42, radius: 50, system: "BART and Muni", transitKmh: 24, driveKmh: 30, defaultMode: "transit" },
+  { name: "Philadelphia", search: "Philadelphia, PA", lat: 39.95, lng: -75.17, radius: 40, system: "SEPTA", transitKmh: 20, driveKmh: 32, defaultMode: "drive" },
+  { name: "Baltimore", search: "Baltimore, MD", lat: 39.29, lng: -76.61, radius: 35, system: "MTA Maryland", transitKmh: 18, driveKmh: 38, defaultMode: "drive" },
+  { name: "Atlanta", search: "Atlanta, GA", lat: 33.75, lng: -84.39, radius: 50, system: "MARTA", transitKmh: 20, driveKmh: 38, defaultMode: "drive" },
+  { name: "Seattle", search: "Seattle, WA", lat: 47.61, lng: -122.33, radius: 45, system: "Link and King County Metro", transitKmh: 21, driveKmh: 32, defaultMode: "drive" },
+  { name: "Los Angeles", search: "Los Angeles, CA", lat: 34.05, lng: -118.24, radius: 70, system: "LA Metro", transitKmh: 18, driveKmh: 35, defaultMode: "drive" },
+  { name: "Denver", search: "Denver, CO", lat: 39.74, lng: -104.99, radius: 40, system: "RTD", transitKmh: 19, driveKmh: 42, defaultMode: "drive" },
+  { name: "Columbus", search: "Columbus, OH", lat: 39.96, lng: -83.0, radius: 35, system: "COTA bus", transitKmh: 15, driveKmh: 45, defaultMode: "drive" },
 ];
 
 export function metroFor(point) {

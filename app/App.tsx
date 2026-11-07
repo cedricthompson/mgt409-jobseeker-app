@@ -4,8 +4,9 @@ import { Prefs, Profile } from './api';
 import WelcomeScreen from './screens/WelcomeScreen';
 import ImportScreen from './screens/ImportScreen';
 import ChatScreen from './screens/ChatScreen';
+import MatchesScreen from './screens/MatchesScreen';
 
-type Screen = 'welcome' | 'import' | 'chat';
+type Screen = 'welcome' | 'import' | 'chat' | 'matches';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
@@ -26,9 +27,10 @@ export default function App() {
           profile={profile}
           prefs={prefs}
           onBack={() => setScreen('import')}
-          onDone={(p) => setProfile(p)}
+          onDone={(p) => { setProfile(p); setScreen('matches'); }}
         />
       )}
+      {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => setScreen('chat')} />}
       <StatusBar style="dark" />
     </>
   );

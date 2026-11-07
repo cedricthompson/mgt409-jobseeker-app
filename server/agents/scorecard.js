@@ -53,12 +53,13 @@ function experienceScore(job, p) {
   return { score: need === 0 ? 100 : clamp((have / need) * 100), note: `You have about ${have} years; the job asks for ${need}.` };
 }
 
-// Weights for the overall score. Unknown parts are left out and the rest re-weighted.
+// Weights for the overall score. An unknown part counts as a neutral 50, so missing
+// information neither inflates nor sinks a job.
 const WEIGHTS = { skills: 0.3, credentials: 0.25, experience: 0.15, pay: 0.15, commute: 0.15 };
 function overall(parts) {
-  let sum = 0, w = 0;
-  for (const [k, wt] of Object.entries(WEIGHTS)) if (parts[k]?.score != null) { sum += parts[k].score * wt; w += wt; }
-  return w ? clamp(sum / w) : null;
+  let sum = 0;
+  for (const [k, wt] of Object.entries(WEIGHTS)) sum += (parts[k]?.score ?? 50) * wt;
+  return clamp(sum);
 }
 
 const SYSTEM = `You are the Scorecard agent of a job search app. For each job, using the applicant profile and the code-computed scores provided:

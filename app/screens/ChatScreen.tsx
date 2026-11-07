@@ -59,6 +59,17 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
             <Text style={styles.backText}>‹ Back</Text>
           </Pressable>
           <Text style={styles.title} role="heading" aria-level={1}>Complete your profile</Text>
+          {messages.length > 0 && !done && (
+            <Pressable
+              onPress={() => onDone(profile)}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel="Skip questions and see job matches now"
+              style={styles.back}
+            >
+              <Text style={styles.backText}>See matches now ›</Text>
+            </Pressable>
+          )}
         </View>
 
         <ScrollView

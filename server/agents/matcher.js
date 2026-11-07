@@ -38,10 +38,11 @@ const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.
   summary: j.source ? j.summary : undefined });
 
 export async function matchJobs({ profile = {}, session, prefs }) {
-  // Real listings come first. Sample jobs are fictional, so they're only used when
-  // no live source returns anything (no keys set, offline, or no results).
+  // Real local listings come first. Sample jobs are fictional, so they're only used when
+  // no live local source returns anything (no keys set, offline, or no results).
   const live = await liveJobs(profile);
-  const jobs = live.length ? live : localJobs(profile);
+  const local = live.local.length ? live.local : localJobs(profile);
+  const jobs = [...local, ...live.remote];
   const byId = Object.fromEntries(jobs.map((j) => [j.id, j]));
 
   const { text } = await chat(
@@ -52,5 +53,5 @@ export async function matchJobs({ profile = {}, session, prefs }) {
     { json: true, agent: "matcher", session }
   );
   const { matches = [] } = JSON.parse(text);
-  return { considered: jobs.length, data: live.length ? "live" : "sample", matches: matches.filter((m) => byId[m.id]).map((m) => ({ ...m, job: byId[m.id] })) };
+  return { considered: jobs.length, data: live.local.length ? "live" : "sample", matches: matches.filter((m) => byId[m.id]).map((m) => ({ ...m, job: byId[m.id] })) };
 }
