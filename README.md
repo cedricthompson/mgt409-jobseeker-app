@@ -4,6 +4,8 @@ A multi-agent job search assistant for iOS, Android, and the web. It builds a co
 candidate profile, finds hidden skills, matches jobs, scores each match from 0 to 100
 with predicted outcomes, and tracks every application.
 
+**Live app:** https://chart-academy-career-coach.onrender.com (free hosting: the first visit after 15 idle minutes takes about 50 seconds to wake up)
+
 **Status:** in development. Due November 23, 2026.
 
 ## The five agents
