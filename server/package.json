@@ -1,0 +1,10 @@
+{
+  "name": "jobseeker-server",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=21.7" },
+  "scripts": {
+    "start": "node index.js",
+    "check": "node check-key.js"
+  }
+}

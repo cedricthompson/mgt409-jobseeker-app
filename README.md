@@ -28,4 +28,6 @@ feature that the agents read from and write to.
 ## Setup
 
 1. Copy `.env.example` to `.env` and add your `PORTKEY_API_KEY`.
-2. Run instructions will be added as the app is built.
+2. Requires Node 21.7 or newer. The server has no dependencies.
+3. `cd server && npm run check` confirms the key works.
+4. `npm start` runs the API at http://localhost:3001.
