@@ -5,6 +5,20 @@ import "./env.js";
 import { geocode, metroFor } from "./geo.js";
 
 const LIMIT = 8;
+
+// Job searches are cached for an hour (job boards don't change minute to minute),
+// which keeps us well under each source's free daily limit. Kept in memory only (URLs can contain keys), never written to disk.
+const SEARCH_TTL = 3600e3;
+const searchCache = new Map();
+async function getJson(url, options = {}) {
+  const hit = searchCache.get(url);
+  if (hit && Date.now() - hit.at < SEARCH_TTL) return hit.data;
+  const res = await fetch(url, { ...options, signal: timeout() });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  searchCache.set(url, { at: Date.now(), data });
+  return data;
+}
 const timeout = () => AbortSignal.timeout(6000);
 const firstRole = (p) => (p.target_roles || [])[0] || (p.experience || [])[0]?.title || "";
 const wantsRemote = (p) => /remote|any|hybrid|open/i.test(p.work_mode || "");
@@ -29,10 +43,10 @@ export async function usajobs(p) {
 async function usajobsSearch(keyword, city, key, email) {
   const qs = new URLSearchParams({ Keyword: keyword, LocationName: city || "", ResultsPerPage: String(LIMIT) });
   try {
-    const res = await fetch(`https://data.usajobs.gov/api/search?${qs}`, {
+    const data = await getJson(`https://data.usajobs.gov/api/search?${qs}`, {
       headers: { Host: "data.usajobs.gov", "User-Agent": email, "Authorization-Key": key }, signal: timeout(),
     });
-    const items = (await res.json()).SearchResult?.SearchResultItems ?? [];
+    const items = data.SearchResult?.SearchResultItems ?? [];
     return items.map(({ MatchedObjectDescriptor: d }) => {
       const pay = d.PositionRemuneration?.[0] ?? {};
       const yearly = pay.RateIntervalCode === "PA";
@@ -58,8 +72,7 @@ export async function adzuna(p) {
     distance: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
   });
   try {
-    const res = await fetch(`https://api.adzuna.com/v1/api/jobs/us/search/1?${qs}`, { signal: timeout() });
-    const { results = [] } = await res.json();
+    const { results = [] } = await getJson(`https://api.adzuna.com/v1/api/jobs/us/search/1?${qs}`);
     return results.map((j) => ({
       id: `adzuna-${j.id}`, title: j.title, company: j.company?.display_name, city: j.location?.display_name,
       lat: j.latitude ?? null, lng: j.longitude ?? null, work_mode: "onsite",
@@ -76,8 +89,7 @@ export async function adzuna(p) {
 export async function remotive(p) {
   if (!wantsRemote(p)) return [];
   try {
-    const res = await fetch(`https://remotive.com/api/remote-jobs?search=${encodeURIComponent(firstRole(p))}&limit=5`, { signal: timeout() });
-    const { jobs = [] } = await res.json();
+    const { jobs = [] } = await getJson(`https://remotive.com/api/remote-jobs?search=${encodeURIComponent(firstRole(p))}&limit=5`);
     return jobs.slice(0, 5).map((j) => ({
       id: `remotive-${j.id}`, title: j.title, company: j.company_name, city: "Remote", work_mode: "remote",
       ...yearlyPay(j.salary), pay_text: j.salary || null, skills: (j.tags || []).slice(0, 6), url: j.url, source: "Remotive",

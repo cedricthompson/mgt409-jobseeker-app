@@ -1,5 +1,6 @@
 import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, space, type } from '../theme';
+import Promo from '../components/Promo';
 
 // Photos of job seekers for the opening page. Each needs alt text for screen readers.
 // Sources are listed in assets/people/CREDITS.md.
@@ -29,9 +30,7 @@ export default function WelcomeScreen({ onStart, onTracker }: { onStart: () => v
         />
 
         <Text style={styles.title} role="heading" aria-level={1}>Your next job starts here</Text>
-        <Text style={styles.lead}>
-          A career coach in your pocket. We help you show employers everything you can do, then find jobs that fit your life.
-        </Text>
+        <Promo />
 
         {PHOTOS.length > 0 && (
           <View style={styles.photoGrid}>
