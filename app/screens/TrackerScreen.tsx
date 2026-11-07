@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { isDue, Outcome, Stage, STAGES, TrackedJob, useTracker } from '../tracker';
 import { colors, radius, space, type } from '../theme';
+import { COACH_TASKS, CoachTask } from './CoachScreen';
 
 const OUTCOMES: Outcome[] = ['Accepted', 'Rejected', 'Withdrew', 'No response'];
 const NEXT: Partial<Record<Stage, Stage>> = { Saved: 'Applied', Applied: 'Screening', Screening: 'Interviewing', Interviewing: 'Offer' };
@@ -20,7 +21,7 @@ function Chip({ label, selected, onPress }: { label: string; selected?: boolean;
   );
 }
 
-function Item({ t, tracker }: { t: TrackedJob; tracker: ReturnType<typeof useTracker> }) {
+function Item({ t, tracker, onCoach }: { t: TrackedJob; tracker: ReturnType<typeof useTracker>; onCoach: (t: TrackedJob, task: CoachTask) => void }) {
   const [editing, setEditing] = useState(false);
   const [notes, setNotes] = useState(t.notes);
   const due = isDue(t);
@@ -81,11 +82,21 @@ function Item({ t, tracker }: { t: TrackedJob; tracker: ReturnType<typeof useTra
         </View>
       )}
       {!editing && t.notes ? <Text style={type.small}>Notes: {t.notes}</Text> : null}
+      {!editing && t.stage !== 'Closed' && (
+        <View style={{ gap: space.xs }}>
+          <Text style={styles.label}>Coach help</Text>
+          <View style={styles.chips}>
+            {COACH_TASKS.filter(({ task }) => task !== 'follow_up' || t.stage !== 'Saved').map(({ task, label }) => (
+              <Chip key={task} label={label} onPress={() => onCoach(t, task)} />
+            ))}
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
-export default function TrackerScreen({ onBack }: { onBack: () => void }) {
+export default function TrackerScreen({ onBack, onCoach }: { onBack: () => void; onCoach: (t: TrackedJob, task: CoachTask) => void }) {
   const tracker = useTracker();
   const dueCount = tracker.items.filter(isDue).length;
 
@@ -109,7 +120,7 @@ export default function TrackerScreen({ onBack }: { onBack: () => void }) {
           return (
             <View key={stage} style={{ gap: space.sm }}>
               <Text style={styles.stage} role="heading" aria-level={2}>{stage} ({list.length})</Text>
-              {list.map((t) => <Item key={t.id} t={t} tracker={tracker} />)}
+              {list.map((t) => <Item key={t.id} t={t} tracker={tracker} onCoach={onCoach} />)}
             </View>
           );
         })}
