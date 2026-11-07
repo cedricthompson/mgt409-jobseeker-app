@@ -9,8 +9,9 @@ import MatchesScreen from './screens/MatchesScreen';
 import TrackerScreen from './screens/TrackerScreen';
 import CoachScreen, { CoachTask } from './screens/CoachScreen';
 import { TrackedJob } from './tracker';
+import SettingsScreen from './screens/SettingsScreen';
 
-type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach';
+type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings';
 
 export default function App() {
   const [screen, setScreenState] = useState<Screen>('welcome');
@@ -32,9 +33,18 @@ export default function App() {
 
   return (
     <>
-      {screen === 'welcome' && <WelcomeScreen onStart={() => setScreen('import')} onTracker={() => setScreen('tracker')} />}
+      {screen === 'welcome' && (
+        <WelcomeScreen
+          onStart={() => setScreen('import')}
+          onTracker={() => setScreen('tracker')}
+          onSettings={() => setScreen('settings')}
+          reduceMotion={prefs.reduce_motion}
+        />
+      )}
+      {screen === 'settings' && <SettingsScreen prefs={prefs} onChange={setPrefs} onBack={() => setScreenState(previous === 'settings' ? 'welcome' : previous)} />}
       {screen === 'import' && (
         <ImportScreen
+          prefs={prefs}
           onBack={() => setScreen('welcome')}
           onContinue={(p, pr) => { setProfile(p); setPrefs(pr); setScreen('chat'); }}
         />

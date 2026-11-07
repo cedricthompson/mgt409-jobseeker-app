@@ -17,7 +17,9 @@ const STEPS = [
   { title: 'Track every application', text: 'Stay organized from first click to job offer.' },
 ];
 
-export default function WelcomeScreen({ onStart, onTracker }: { onStart: () => void; onTracker: () => void }) {
+export default function WelcomeScreen({ onStart, onTracker, onSettings, reduceMotion }: {
+  onStart: () => void; onTracker: () => void; onSettings: () => void; reduceMotion?: boolean;
+}) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -30,7 +32,7 @@ export default function WelcomeScreen({ onStart, onTracker }: { onStart: () => v
         />
 
         <Text style={styles.title} role="heading" aria-level={1}>Your next job starts here</Text>
-        <Promo />
+        <Promo reduceMotion={reduceMotion} />
 
         {PHOTOS.length > 0 && (
           <View style={styles.photoGrid}>
@@ -49,9 +51,14 @@ export default function WelcomeScreen({ onStart, onTracker }: { onStart: () => v
         >
           <Text style={styles.ctaText}>Get started</Text>
         </Pressable>
-        <Pressable onPress={onTracker} accessibilityRole="button" accessibilityLabel="My applications" style={styles.link}>
-          <Text style={styles.linkText}>My applications</Text>
-        </Pressable>
+        <View style={styles.links}>
+          <Pressable onPress={onTracker} accessibilityRole="button" accessibilityLabel="My applications" style={styles.link}>
+            <Text style={styles.linkText}>My applications</Text>
+          </Pressable>
+          <Pressable onPress={onSettings} accessibilityRole="button" accessibilityLabel="Accessibility and language settings" style={styles.link}>
+            <Text style={styles.linkText}>Accessibility and language</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.steps}>
           {STEPS.map((s, i) => (
@@ -78,6 +85,7 @@ const styles = StyleSheet.create({
   photoGrid: { flexDirection: 'row', gap: space.sm },
   photo: { flex: 1, height: 170, borderRadius: radius },
   cta: { backgroundColor: colors.blue, minHeight: 56, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
+  links: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: space.lg },
   link: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   linkText: { fontSize: 18, fontWeight: '600', color: colors.blue, textDecorationLine: 'underline' },
   ctaText: { color: colors.white, fontSize: 20, fontWeight: '700' },

@@ -8,7 +8,7 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL
 export const session = Math.random().toString(36).slice(2);
 
 export type Profile = Record<string, unknown>;
-export type Prefs = { plain_language?: boolean; one_step?: boolean; language?: string };
+export type Prefs = { plain_language?: boolean; one_step?: boolean; language?: string; read_aloud?: boolean; reduce_motion?: boolean };
 
 export async function post<T>(path: string, body: object): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {

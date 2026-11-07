@@ -15,6 +15,6 @@ export function accessibility(prefs = {}) {
   ];
   if (prefs.plain_language) lines.push("Use plain language: short sentences, common words, about a 6th-grade reading level, no idioms.");
   if (prefs.one_step) lines.push("Ask exactly one simple question at a time.");
-  if (prefs.language && prefs.language !== "en") lines.push(`Reply in this language: ${prefs.language}.`);
+  if (prefs.language && !/^(en|english)$/i.test(prefs.language)) lines.push(`Reply in this language: ${prefs.language}.`);
   return lines.join("\n");
 }

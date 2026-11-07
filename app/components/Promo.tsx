@@ -10,7 +10,7 @@ const LINES = [
   'See your best matches, your real chances, and your next step.',
 ];
 
-export default function Promo() {
+export default function Promo({ reduceMotion: forced = false }: { reduceMotion?: boolean }) {
   const [index, setIndex] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
   const opacity = useRef(new Animated.Value(0)).current;
@@ -21,7 +21,7 @@ export default function Promo() {
   }, []);
 
   useEffect(() => {
-    if (reduceMotion) return;
+    if (reduceMotion || forced) return;
     opacity.setValue(0);
     const anim = Animated.sequence([
       Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
@@ -30,12 +30,12 @@ export default function Promo() {
     ]);
     anim.start(({ finished }) => finished && setIndex((i) => (i + 1) % LINES.length));
     return () => anim.stop();
-  }, [index, reduceMotion]);
+  }, [index, reduceMotion, forced]);
 
   // Screen readers get all lines at once instead of text that keeps changing.
   const allText = LINES.join(' ');
 
-  if (reduceMotion) {
+  if (reduceMotion || forced) {
     return (
       <View style={styles.box} accessible accessibilityLabel={allText}>
         {LINES.map((l) => <Text key={l} style={styles.text}>{l}</Text>)}

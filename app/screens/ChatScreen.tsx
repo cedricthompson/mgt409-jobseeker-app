@@ -2,7 +2,9 @@ import { ComponentRef, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
+import * as Speech from 'expo-speech';
 import { post, Prefs, Profile } from '../api';
+import { voiceFor } from './SettingsScreen';
 import { colors, radius, space, type } from '../theme';
 
 type Msg = { role: 'user' | 'assistant'; content: string; why?: string };
@@ -27,6 +29,7 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
       });
       setProfile(r.profile);
       setMessages([...history, { role: 'assistant', content: r.reply, why: r.why }]);
+      if (prefs.read_aloud) speak(r.reply);
       setDone(r.done);
     } catch (e) {
       setError(`Something went wrong. ${(e as Error).message}`);
@@ -34,6 +37,9 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
       setLoading(false);
     }
   }
+
+  const speak = (text: string) => { Speech.stop(); Speech.speak(text, { language: voiceFor(prefs.language) }); };
+  useEffect(() => () => { Speech.stop(); }, []); // stop talking when leaving the screen
 
   // The agent asks the first question as soon as the screen opens.
   // The ref guard stops a duplicate (paid) call if the effect runs twice.
@@ -78,14 +84,20 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
         >
           {messages.map((m, i) => (
+            <View key={i} style={{ gap: 2 }}>
             <View
-              key={i}
               style={[styles.bubble, m.role === 'user' ? styles.user : styles.coach]}
               accessible
               accessibilityLabel={`${m.role === 'user' ? 'You said' : 'Coach said'}: ${m.content}${m.why ? `. Why this matters: ${m.why}` : ''}`}
             >
               <Text style={[type.body, m.role === 'user' && { color: colors.white }]}>{m.content}</Text>
               {m.why ? <Text style={styles.why}>Why this matters: {m.why}</Text> : null}
+            </View>
+            {m.role === 'assistant' && (
+              <Pressable onPress={() => speak(m.content)} accessibilityRole="button" accessibilityLabel="Read this message aloud" style={styles.listen}>
+                <Text style={styles.listenText}>🔊 Read aloud</Text>
+              </Pressable>
+            )}
             </View>
           ))}
           <View aria-live="polite">
@@ -140,6 +152,8 @@ const styles = StyleSheet.create({
   coach: { backgroundColor: colors.tint, alignSelf: 'flex-start' },
   user: { backgroundColor: colors.blue, alignSelf: 'flex-end' },
   why: { ...type.small, fontStyle: 'italic' },
+  listen: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
+  listenText: { fontSize: 16, fontWeight: '600', color: colors.blue },
   error: { fontSize: 18, color: colors.red },
   cta: { backgroundColor: colors.red, minHeight: 56, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: colors.white, fontSize: 20, fontWeight: '700' },

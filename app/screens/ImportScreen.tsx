@@ -11,11 +11,11 @@ import { API_URL, session, Prefs, Profile } from '../api';
 
 type ImportResult = { profile: Profile; summary: string; missing: string[] };
 
-export default function ImportScreen({ onBack, onContinue }: {
-  onBack: () => void; onContinue: (p: Profile, prefs: Prefs) => void;
+export default function ImportScreen({ prefs, onBack, onContinue }: {
+  prefs: Prefs; onBack: () => void; onContinue: (p: Profile, prefs: Prefs) => void;
 }) {
   const [resumeText, setResumeText] = useState('');
-  const [plainLanguage, setPlainLanguage] = useState(false);
+  const [plainLanguage, setPlainLanguage] = useState(!!prefs.plain_language);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
@@ -26,7 +26,7 @@ export default function ImportScreen({ onBack, onContinue }: {
       const res = await fetch(`${API_URL}/api/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session, kind, data, mimeType, prefs: { plain_language: plainLanguage } }),
+        body: JSON.stringify({ session, kind, data, mimeType, prefs: { ...prefs, plain_language: plainLanguage } }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
@@ -137,7 +137,7 @@ export default function ImportScreen({ onBack, onContinue }: {
               )}
               <Pressable
                 style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-                onPress={() => onContinue(result.profile, { plain_language: plainLanguage })}
+                onPress={() => onContinue(result.profile, { ...prefs, plain_language: plainLanguage })}
                 accessibilityRole="button"
                 accessibilityLabel="Continue to finish my profile"
               >
