@@ -36,7 +36,13 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
   }
 
   // The agent asks the first question as soon as the screen opens.
-  useEffect(() => { send([]); }, []);
+  // The ref guard stops a duplicate (paid) call if the effect runs twice.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    send([]);
+  }, []);
 
   function submit() {
     const text = draft.trim();
