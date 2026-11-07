@@ -36,6 +36,16 @@ feature that the agents read from and write to.
 - **To switch:** leave the optional keys blank to use only the sample data, or fill them in to add live jobs. A source that is missing a key or fails is skipped.
 - Indeed and LinkedIn job data are not used: neither offers a public jobs API, and scraping breaks their terms.
 
+## Hosted version
+
+The app is set up to run online as one free [Render](https://render.com) web service (see [`render.yaml`](render.yaml)):
+`npm run build` builds the web app, and `npm start` serves both the app and the API.
+Keys are entered in the Render dashboard, never committed. Each visitor is limited to 120 AI requests per hour to protect the course key.
+
+## Run it locally
+
+Quick version (one server, like the hosted app): `npm run build && npm start`, then open http://localhost:3001.
+
 ## Setup
 
 1. Copy `.env.example` to `.env` and add your `PORTKEY_API_KEY`.

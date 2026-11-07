@@ -1,5 +1,10 @@
 // Shared server calls. One session id per app launch, used for per-applicant token tracking.
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+import { Platform } from 'react-native';
+
+// In development the API runs on port 3001. In the hosted web app, the same server
+// serves both the app and the API, so requests go to the same address the page came from.
+export const API_URL = process.env.EXPO_PUBLIC_API_URL
+  ?? (Platform.OS === 'web' && !__DEV__ ? '' : 'http://localhost:3001');
 export const session = Math.random().toString(36).slice(2);
 
 export type Profile = Record<string, unknown>;

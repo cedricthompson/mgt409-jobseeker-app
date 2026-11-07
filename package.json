@@ -1,0 +1,11 @@
+{
+  "name": "mgt409-jobseeker-app",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "cd app && npm ci && npx expo export --platform web",
+    "start": "node server/index.js",
+    "check": "node server/check-key.js"
+  }
+}

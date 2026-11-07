@@ -1,0 +1,23 @@
+# Render blueprint: one free web service that serves the web app and the API.
+# Keys are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: chart-academy-career-coach
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: PORTKEY_API_KEY
+        sync: false
+      - key: USAJOBS_API_KEY
+        sync: false
+      - key: USAJOBS_EMAIL
+        sync: false
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
