@@ -18,12 +18,13 @@ const clearanceRank = (s) => {
 };
 
 const MODE_WORDS = { drive: "driving", transit: "by public transit", bike: "by bike", walk: "walking" };
-function commuteScore(job, { minutes, method }, max = 30, mode = "drive") {
+function commuteScore(job, { minutes, method, mode, system, note }, max = 30) {
   if (job.work_mode === "remote") return { score: 100, note: "Remote job: no commute." };
   if (minutes == null) return { score: null, note: "Commute unknown (job location not specific)." };
   const score = minutes <= max ? 100 : clamp(100 - ((minutes - max) / max) * 100);
-  const how = `${method === "routed" ? "" : "About "}${minutes} min each way ${MODE_WORDS[mode] || "driving"}${method === "routed" ? " (real schedule)" : " (estimate)"}`;
-  return { score, note: `${how}; your limit is ${max}.` };
+  const by = system ? `by ${system}` : MODE_WORDS[mode] || "driving";
+  const how = `${method === "routed" ? "" : "About "}${minutes} min each way ${by}${method === "routed" ? " (real schedule)" : " (estimate)"}`;
+  return { score, note: `${how}${note ? `, ${note}` : ""}; your limit is ${max}.` };
 }
 
 function payScore(job, target) {
@@ -74,13 +75,12 @@ Reply ONLY with JSON: {"jobs": [{"id": string, "skills": {"score": number, "note
 
 export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
   const home = await geocode(profile.city);
-  const mode = profile.commute_mode || "drive";
   const coded = await Promise.all(jobs.slice(0, 8).map(async (job) => {
     const where = job.lat != null ? { lat: job.lat, lng: job.lng } : await geocode(job.city);
     return {
       job,
       parts: {
-        commute: commuteScore(job, await commute(home, where, mode), Number(profile.commute_minutes) || 30, mode),
+        commute: commuteScore(job, await commute(home, where, profile.commute_mode), Number(profile.commute_minutes) || 30),
         pay: payScore(job, Number(profile.target_pay)),
         credentials: credentialScore(job, profile),
         experience: experienceScore(job, profile),

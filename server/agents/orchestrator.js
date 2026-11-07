@@ -6,7 +6,7 @@ import { gap } from "./gap.js";
 const filled = (v) => v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
 
 export function missingBasics(p = {}) {
-  const required = { city: p.city, commute: p.commute_minutes, "how you get to work": p.commute_mode, "work mode": p.work_mode, education: p.education,
+  const required = { city: p.city, commute: p.commute_minutes, "work mode": p.work_mode, education: p.education,
     experience: p.experience, "target roles": p.target_roles, "target pay": p.target_pay };
   return Object.entries(required).filter(([, v]) => !filled(v)).map(([k]) => k);
 }
