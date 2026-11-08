@@ -3,6 +3,7 @@
 // a tailored resume, a cover letter, a follow-up email, or interview prep.
 import { chat } from "../llm.js";
 import { SAFETY, accessibility } from "./common.js";
+import { jobFacts } from "./fairness.js";
 
 const TASKS = {
   resume: "Write a one-page resume tailored to this job. Order and word the applicant's real experience to match the job. Use plain text with simple section headings (SUMMARY, SKILLS, EXPERIENCE, CERTIFICATIONS, EDUCATION) and short bullet lines starting with a hyphen. Turn duties into results where the profile supports it.",
@@ -25,7 +26,7 @@ export async function coach({ task, profile = {}, job = {}, tracked = {}, sessio
   const { text } = await chat(
     [
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
-      { role: "user", content: `${TASKS[task]}\nApplicant: ${JSON.stringify(profile)}\nJob: ${JSON.stringify(jobInfo)}` +
+      { role: "user", content: `${TASKS[task]}\nApplicant: ${JSON.stringify(jobFacts(profile))}\nJob: ${JSON.stringify(jobInfo)}` +
         (tracked.appliedAt ? `\nApplied on: ${tracked.appliedAt}. Notes: ${tracked.notes || "none"}` : "") },
     ],
     { json: true, agent: `coach:${task}`, session }

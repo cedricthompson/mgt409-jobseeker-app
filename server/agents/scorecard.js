@@ -5,6 +5,7 @@
 import { chat } from "../llm.js";
 import { geocode, commute } from "../geo.js";
 import { SAFETY, accessibility } from "./common.js";
+import { jobFacts } from "./fairness.js";
 
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 const CLEARANCE = ["none", "public trust", "secret", "top secret", "ts/sci"];
@@ -93,7 +94,7 @@ export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
     [
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
       { role: "user", content: JSON.stringify({
-        applicant: profile,
+        applicant: jobFacts(profile),
         jobs: coded.map(({ job, parts }) => ({ id: job.id, title: job.title, company: job.company, mode: job.work_mode,
           skills: job.skills, summary: job.summary, clearance: job.clearance,
           scores: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, v.score])) })),

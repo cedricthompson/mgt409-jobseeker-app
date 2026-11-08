@@ -3,6 +3,7 @@
 // that raise the applicant's pay or odds. Stateless like Intake.
 import { chat } from "../llm.js";
 import { SAFETY, accessibility } from "./common.js";
+import { jobFacts } from "./fairness.js";
 
 const SYSTEM = `You are the Gap Analysis agent of a job search app. Job seekers often undersell themselves. Your job:
 1. Find gaps: missing or vague details (duties, tools, team size, numbers, dates).
@@ -17,7 +18,7 @@ export async function gap({ messages = [], profile = {}, session, prefs }) {
   const { text } = await chat(
     [
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
-      { role: "system", content: `Current profile: ${JSON.stringify(profile)}` },
+      { role: "system", content: `Current profile: ${JSON.stringify(jobFacts(profile))}` },
       ...messages,
     ],
     { json: true, agent: "gap", session }

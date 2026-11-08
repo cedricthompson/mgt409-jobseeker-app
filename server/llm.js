@@ -32,7 +32,6 @@ function record(agent, session, u, hit = false) {
 // calling the model again (for example, reopening matches for an unchanged profile).
 // Kept on disk so it survives restarts; entries expire after CACHE_HOURS.
 const CACHE_FILE = resolve(LOG_DIR, "llm-cache.json");
-const CACHE_HOURS = Number(process.env.CACHE_HOURS || 24);
 const cache = existsSync(CACHE_FILE) ? JSON.parse(readFileSync(CACHE_FILE, "utf8")) : {};
 const cacheKey = (body) => createHash("sha256").update(JSON.stringify(body)).digest("hex");
 
@@ -40,7 +39,8 @@ export async function chat(messages, { json = false, agent = "other", session = 
   const body = { model: MODEL, messages, ...(json && { response_format: { type: "json_object" } }) };
   const key = cacheKey(body);
   const hit = useCache && cache[key];
-  if (hit && Date.now() - hit.at < CACHE_HOURS * 3600e3) {
+  const hours = Number(process.env.CACHE_HOURS ?? 24); // read per call, so scripts can turn the cache off
+  if (hit && Date.now() - hit.at < hours * 3600e3) {
     record(agent, session, hit.usage, true);
     return { text: hit.text, usage: hit.usage, cached: true };
   }
@@ -52,7 +52,11 @@ export async function chat(messages, { json = false, agent = "other", session = 
     headers: { "Content-Type": "application/json", "x-portkey-api-key": apiKey },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Model call failed (${res.status}): ${await res.text()}`);
+  if (!res.ok) {
+    const detail = await res.text();
+    if (detail.includes("content_filter")) throw Object.assign(new Error("I can't help with that request. Please rephrase it as a question about your job search."), { code: "content_filter", status: 400 });
+    throw new Error(`Model call failed (${res.status}): ${detail}`);
+  }
 
   const data = await res.json();
   const text = data.choices[0].message.content;

@@ -1,0 +1,134 @@
+{
+  "when": "2026-11-08T02:22:06.790Z",
+  "model": "gpt-6-luna",
+  "runs": [
+    {
+      "persona": "Andre (DC, IT help desk, Secret clearance)",
+      "steps": [
+        {
+          "agent": "Intake (resume import)",
+          "ms": 3722,
+          "model_calls": 1,
+          "prompt_tokens": 313,
+          "completion_tokens": 435,
+          "summary": "You have three years of information technology help desk experience at Johns Hopkins, CompTIA A+ and Security+ certifications, and an active Secret clearance. You are seeking hybrid Information Technology Specialist roles with a target pay of $65,000 and a commute of up to 45 minutes. Missing: Preferred commute mode."
+        },
+        {
+          "agent": "Orchestrator -> Intake/Gap",
+          "ms": 512,
+          "model_calls": 1,
+          "prompt_tokens": 434,
+          "completion_tokens": 392,
+          "summary": "[gap] About how many users or support tickets did you handle, and did you meet service targets or improve resolution times?"
+        },
+        {
+          "agent": "Orchestrator -> Intake/Gap (answer)",
+          "ms": 9447,
+          "model_calls": 1,
+          "prompt_tokens": 483,
+          "completion_tokens": 429,
+          "summary": "[gap] Did you consistently meet service targets, such as response or resolution times, or help improve them?"
+        },
+        {
+          "agent": "Job Matcher",
+          "ms": 25484,
+          "model_calls": 1,
+          "prompt_tokens": 1875,
+          "completion_tokens": 1034,
+          "summary": "19 jobs considered (sample data); top: IT Specialist (Customer Support), GS-9 (strong); Help Desk Technician (good); IT Support Analyst (Remote) (good)"
+        },
+        {
+          "agent": "Scorecard",
+          "ms": 9861,
+          "model_calls": 1,
+          "prompt_tokens": 836,
+          "completion_tokens": 1100,
+          "summary": "84/100 (interview 62%, hire 34%); 82/100 (interview 72%, hire 48%); 86/100 (interview 42%, hire 22%)"
+        },
+        {
+          "agent": "Application Coach (cover letter)",
+          "ms": 5588,
+          "model_calls": 1,
+          "prompt_tokens": 499,
+          "completion_tokens": 554,
+          "summary": "164 words; tips: Add your contact information and the date before submitting. | Check the vacancy announcement for any required application details or specialized experience language. | Do not describe your Secret clearance as Public Trust; they are separate clearance types."
+        }
+      ],
+      "totals": {
+        "calls": 6,
+        "prompt": 4440,
+        "completion": 3944,
+        "ms": 54614
+      },
+      "scores": [
+        84,
+        82,
+        86
+      ]
+    },
+    {
+      "persona": "Maria (Columbus, line cook to kitchen manager)",
+      "steps": [
+        {
+          "agent": "Intake (resume import)",
+          "ms": 3625,
+          "model_calls": 1,
+          "prompt_tokens": 303,
+          "completion_tokens": 381,
+          "summary": "You have three years of line cook experience at Applebee's, including training new hires and running the weekend grill station. You are targeting a kitchen manager role paying $50,000, with an on-site commute of up to 25 minutes by car. Missing: Employment start and end dates, Whether the target pay is annual and negotiable."
+        },
+        {
+          "agent": "Orchestrator -> Intake/Gap",
+          "ms": 3952,
+          "model_calls": 1,
+          "prompt_tokens": 429,
+          "completion_tokens": 509,
+          "summary": "[gap] On weekend grill shifts, were you responsible for directing other cooks or coordinating the shift, and if so, how many people did you lead?"
+        },
+        {
+          "agent": "Orchestrator -> Intake/Gap (answer)",
+          "ms": 4052,
+          "model_calls": 1,
+          "prompt_tokens": 483,
+          "completion_tokens": 410,
+          "summary": "[gap] Did you also handle food inventory or ordering at Applebee’s, and if so, what were you responsible for?"
+        },
+        {
+          "agent": "Job Matcher",
+          "ms": 13595,
+          "model_calls": 1,
+          "prompt_tokens": 1313,
+          "completion_tokens": 1429,
+          "summary": "8 jobs considered (live data); top: Kitchen Manager (good); Kitchen Manager (Reynoldsburg) (good); Kitchen Manager (good)"
+        },
+        {
+          "agent": "Scorecard",
+          "ms": 8388,
+          "model_calls": 1,
+          "prompt_tokens": 927,
+          "completion_tokens": 961,
+          "summary": "76/100 (interview 62%, hire 27%); 79/100 (interview 68%, hire 32%); 78/100 (interview 59%, hire 25%)"
+        },
+        {
+          "agent": "Application Coach (cover letter)",
+          "ms": 4181,
+          "model_calls": 1,
+          "prompt_tokens": 496,
+          "completion_tokens": 397,
+          "summary": "142 words; tips: Add the hiring manager’s name if you can find it. | Include a specific example of how you helped your team handle a busy shift, if available. | Confirm the location name and address before sending."
+        }
+      ],
+      "totals": {
+        "calls": 6,
+        "prompt": 3951,
+        "completion": 4087,
+        "ms": 37793
+      },
+      "scores": [
+        76,
+        79,
+        78
+      ]
+    }
+  ]
+}

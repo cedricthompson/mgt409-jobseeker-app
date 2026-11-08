@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { chat } from "../llm.js";
 import { liveJobs } from "../sources.js";
 import { SAFETY, accessibility } from "./common.js";
+import { jobFacts } from "./fairness.js";
 
 const SAMPLE = JSON.parse(readFileSync(new URL("../data/sample-jobs.json", import.meta.url)));
 
@@ -48,7 +49,7 @@ export async function matchJobs({ profile = {}, session, prefs }) {
   const { text } = await chat(
     [
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
-      { role: "user", content: `Applicant: ${JSON.stringify(profile)}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
+      { role: "user", content: `Applicant: ${JSON.stringify(jobFacts(profile))}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
     ],
     { json: true, agent: "matcher", session }
   );

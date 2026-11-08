@@ -85,6 +85,7 @@ createServer(async (req, res) => {
   try {
     send(res, 200, await handler(req));
   } catch (err) {
+    if (err.status === 413) res.shouldKeepAlive = false; // unread upload data would break the next request
     send(res, err.status || 500, { error: err.message });
   }
 }).listen(PORT, () => console.log(`Running at http://localhost:${PORT}`));
