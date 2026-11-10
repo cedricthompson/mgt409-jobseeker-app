@@ -27,8 +27,8 @@ export async function importResume({ kind, data, mimeType = "image/jpeg", sessio
     part = { type: "image_url", image_url: { url: `data:${mime || mimeType};base64,${b64}` } };
   } else if (kind === "pdf") {
     const { b64 } = splitDataUrl(data);
-    // Every PDF starts with "%PDF", which is "JVBER" in base64. Catch Word files and others early.
-    if (!b64.startsWith("JVBER")) throw new Error(CANT_READ);
+    // Every PDF has "%PDF" in its first 1,024 bytes (usually at the very start). Catch Word files and others early.
+    if (!Buffer.from(b64.slice(0, 1400), "base64").toString("latin1").includes("%PDF")) throw new Error(CANT_READ);
     part = { type: "file", file: { filename: "resume.pdf", file_data: `data:application/pdf;base64,${b64}` } };
   } else throw new Error(`Unsupported import kind: ${kind}. Use text, image, or pdf.`);
 
