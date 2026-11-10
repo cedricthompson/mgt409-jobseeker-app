@@ -1,28 +1,24 @@
 // Agent 3: Job Matcher.
 // Step 1 (code, no tokens): gather jobs near the applicant from the sample dataset
-//   and the live sources (USAJobs, Adzuna, Remotive) in sources.js.
+//   and the live sources (USAJobs, Adzuna, Google Jobs, Remotive) in sources.js.
 // Step 2 (one model call): rank the shortlist and explain each match.
 import { readFileSync } from "node:fs";
 import { chat } from "../llm.js";
 import { liveJobs } from "../sources.js";
+import { geocode, metroFor } from "../geo.js";
 import { SAFETY, accessibility } from "./common.js";
 import { jobFacts } from "./fairness.js";
 
 const SAMPLE = JSON.parse(readFileSync(new URL("../data/sample-jobs.json", import.meta.url)));
 
-const state = (s = "") => (s.match(/,\s*([A-Z]{2})\b/) || [])[1];
 const wantsRemote = (p) => /remote|any|hybrid|open/i.test(p.work_mode || "");
-// Metro areas that cross state lines.
-const METRO = { DC: ["DC", "MD", "VA"] };
 
-function localJobs(p) {
-  const city = (p.city || "").toLowerCase().split(",")[0].trim();
-  const st = state(p.city || "") || (/washington|\bdc\b/i.test(p.city || "") ? "DC" : undefined);
-  const states = METRO[st] || [st];
-  const near = SAMPLE.filter((j) => j.city !== "Remote" &&
-    ((city && j.city.toLowerCase().startsWith(city)) || (st && states.includes(state(j.city)))));
+// Sample jobs near the applicant: same metro area by distance (so Washington, DC does not pull in
+// Baltimore just because both touch Maryland). Falls back to all samples when the metro isn't covered.
+async function localJobs(p) {
+  const home = metroFor(await geocode(p.city));
+  const near = home ? SAMPLE.filter((j) => j.lat != null && metroFor({ lat: j.lat, lng: j.lng }) === home) : [];
   const remote = wantsRemote(p) ? SAMPLE.filter((j) => j.work_mode === "remote") : [];
-  // If the city is not in the sample data, show all samples and let the agent rank them.
   return near.length ? [...near, ...remote] : SAMPLE;
 }
 
@@ -42,8 +38,8 @@ export async function matchJobs({ profile = {}, session, prefs }) {
   // Real local listings come first. Sample jobs are fictional, so they're only used when
   // no live local source returns anything (no keys set, offline, or no results).
   const live = await liveJobs(profile);
-  const local = live.local.length ? live.local : localJobs(profile);
-  const jobs = [...local, ...live.remote];
+  const local = live.local.length ? live.local : await localJobs(profile);
+  const jobs = [...local.slice(0, 30), ...live.remote]; // cap the list so the ranking call stays affordable
   const byId = Object.fromEntries(jobs.map((j) => [j.id, j]));
 
   const { text } = await chat(

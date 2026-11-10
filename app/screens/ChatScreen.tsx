@@ -5,9 +5,10 @@ import {
 import * as Speech from 'expo-speech';
 import { post, Prefs, Profile } from '../api';
 import { voiceFor } from './SettingsScreen';
+import MicButton, { canDictate } from '../components/MicButton';
 import { colors, radius, space, type } from '../theme';
 
-type Msg = { role: 'user' | 'assistant'; content: string; why?: string };
+type Msg = { role: 'user' | 'assistant'; content: string; why?: string; agent?: string };
 type ChatReply = { agent: 'intake' | 'gap'; reply: string; why?: string; profile: Profile; missing: string[]; done: boolean };
 
 export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
@@ -20,15 +21,17 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
+  const typedBefore = useRef(''); // what was in the box when the microphone turned on
+  const [micKey, setMicKey] = useState(0); // changing it resets the Speak button, which turns the microphone off
 
   async function send(history: Msg[]) {
     setMessages(history); setLoading(true); setError('');
     try {
       const r = await post<ChatReply>('/api/profile-chat', {
-        profile, prefs, messages: history.map(({ role, content }) => ({ role, content })),
+        profile, prefs, messages: history.map(({ role, content, agent }) => ({ role, content, agent })),
       });
       setProfile(r.profile);
-      setMessages([...history, { role: 'assistant', content: r.reply, why: r.why }]);
+      setMessages([...history, { role: 'assistant', content: r.reply, why: r.why, agent: r.agent }]);
       if (prefs.read_aloud) speak(r.reply);
       setDone(r.done);
     } catch (e) {
@@ -54,6 +57,7 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
     const text = draft.trim();
     if (!text || loading) return;
     setDraft('');
+    setMicKey((k) => k + 1);
     send([...messages, { role: 'user', content: text }]);
   }
 
@@ -117,13 +121,20 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={submit}
-            placeholder="Type or speak your answer"
+            placeholder={canDictate ? 'Type, or tap Speak and say your answer' : 'Type or speak your answer'}
             placeholderTextColor={colors.muted}
             accessibilityLabel="Your answer"
-            accessibilityHint="Type, or use the keyboard microphone to speak"
+            accessibilityHint={canDictate ? 'Type, or use the Speak button' : 'Type, or use the keyboard microphone to speak'}
             multiline
             blurOnSubmit
             returnKeyType="send"
+          />
+          <MicButton
+            key={micKey}
+            language={voiceFor(prefs.language)}
+            disabled={loading}
+            onStart={() => { typedBefore.current = draft ? `${draft.trim()} ` : ''; }}
+            onText={(spoken) => setDraft(typedBefore.current + spoken)}
           />
           <Pressable
             style={[styles.send, (!draft.trim() || loading) && { backgroundColor: colors.line }]}

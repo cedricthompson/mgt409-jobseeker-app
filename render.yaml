@@ -21,3 +21,5 @@ services:
         sync: false
       - key: ADZUNA_APP_KEY
         sync: false
+      - key: JSEARCH_API_KEY
+        sync: false

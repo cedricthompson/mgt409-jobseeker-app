@@ -8,7 +8,9 @@ import { PROFILE_SHAPE, SAFETY, accessibility } from "./common.js";
 const SYSTEM = `You read resumes and LinkedIn profiles for a job search app and extract a structured profile.
 ${SAFETY}
 Reply ONLY with JSON: {"profile": ${PROFILE_SHAPE}, "summary": string, "missing": [string]}
-Use null for unknown fields. "summary" is 1-2 sentences confirming what you found. "missing" lists important fields to ask about next.`;
+Capture everything the resume states so the applicant is never asked for it again: every job with all duties and accomplishments (keep numbers like team size, budgets, and results), tools and software, skills, certifications, degrees, and the city.
+If target roles are not stated, infer 1-3 from the most recent titles and career direction. Never guess target pay.
+Use null for unknown fields. "summary" is 1-2 sentences confirming what you found. "missing" lists only important fields the resume truly does not answer.`;
 
 // Some pickers (the web file picker in particular) send a full data URL
 // ("data:application/pdf;base64,....") instead of bare base64. Accept both.

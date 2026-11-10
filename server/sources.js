@@ -67,19 +67,60 @@ async function usajobsSearch(keyword, city, key, email) {
 export async function adzuna(p) {
   const { ADZUNA_APP_ID: id, ADZUNA_APP_KEY: key } = process.env;
   if (!id || !key) return [];
+  // Search the target role and the most recent job title, like USAJobs, so a narrow title still finds openings.
+  const keywords = [...new Set([(p.target_roles || [])[0], (p.experience || [])[0]?.title].filter(Boolean))];
+  const where = await searchPlace(p.city);
+  const search = async (what) => {
+    const qs = new URLSearchParams({
+      app_id: id, app_key: key, what, where, results_per_page: String(LIMIT),
+      distance: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
+    });
+    try {
+      return (await getJson(`https://api.adzuna.com/v1/api/jobs/us/search/1?${qs}`)).results ?? [];
+    } catch {
+      return [];
+    }
+  };
+  const results = (await Promise.all(keywords.map(search))).flat();
+  return results.map((j) => ({
+    id: `adzuna-${j.id}`, title: j.title, company: j.company?.display_name, city: j.location?.display_name,
+    lat: j.latitude ?? null, lng: j.longitude ?? null, work_mode: "onsite",
+    pay_min: j.salary_min ? Math.round(j.salary_min) : null, pay_max: j.salary_max ? Math.round(j.salary_max) : null,
+    pay_estimated: String(j.salary_is_predicted) === "1", // Adzuna's own estimate, not posted by the employer
+    summary: (j.description || "").slice(0, 300), url: j.redirect_url, source: "Adzuna",
+  }));
+}
+
+// JSearch (Google for Jobs). Brings in listings posted on LinkedIn, Indeed, Glassdoor, ZipRecruiter,
+// and company career sites, each with its apply link. Indeed and LinkedIn do not offer public job
+// search APIs and do not allow scraping, so this is the supported way to include their listings.
+// Free key (about 200 searches a month): https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
+// One search per match request, cached for an hour, to stay inside the free plan.
+export async function jsearch(p) {
+  const key = process.env.JSEARCH_API_KEY;
+  const role = firstRole(p);
+  if (!key || !role) return [];
+  const where = await searchPlace(p.city);
   const qs = new URLSearchParams({
-    app_id: id, app_key: key, what: firstRole(p), where: await searchPlace(p.city), results_per_page: String(LIMIT),
-    distance: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
+    query: where ? `${role} in ${where}` : role, page: "1", num_pages: "1", country: "us", date_posted: "month",
+    radius: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
   });
   try {
-    const { results = [] } = await getJson(`https://api.adzuna.com/v1/api/jobs/us/search/1?${qs}`);
-    return results.map((j) => ({
-      id: `adzuna-${j.id}`, title: j.title, company: j.company?.display_name, city: j.location?.display_name,
-      lat: j.latitude ?? null, lng: j.longitude ?? null, work_mode: "onsite",
-      pay_min: j.salary_min ? Math.round(j.salary_min) : null, pay_max: j.salary_max ? Math.round(j.salary_max) : null,
-      pay_estimated: String(j.salary_is_predicted) === "1", // Adzuna's own estimate, not posted by the employer
-      summary: (j.description || "").slice(0, 300), url: j.redirect_url, source: "Adzuna",
-    }));
+    const { data = [] } = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}`, {
+      headers: { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" },
+    });
+    return data.slice(0, 12).map((j) => {
+      const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";
+      const toYear = (n) => (n ? Math.round(hourly ? n * 2080 : n) : null);
+      return {
+        id: `jsearch-${j.job_id}`, title: j.job_title, company: j.employer_name,
+        city: [j.job_city, j.job_state].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : null),
+        lat: j.job_latitude ?? null, lng: j.job_longitude ?? null, work_mode: j.job_is_remote ? "remote" : "onsite",
+        pay_min: yearly || hourly ? toYear(j.job_min_salary) : null, pay_max: yearly || hourly ? toYear(j.job_max_salary) : null,
+        summary: (j.job_description || "").slice(0, 300), url: j.job_apply_link,
+        source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
+      };
+    });
   } catch {
     return [];
   }
@@ -99,10 +140,16 @@ export async function remotive(p) {
   }
 }
 
-// Local = jobs you commute to (USAJobs, Adzuna). Remote = Remotive.
+// Local = jobs you commute to (USAJobs, Adzuna, Google Jobs). Remote = Remotive.
+// The same opening often appears on several boards, so repeats (same title and company) are dropped.
 export async function liveJobs(p) {
-  const [fed, board, remote] = await Promise.all([usajobs(p), adzuna(p), remotive(p)]);
-  return { local: [...fed, ...board], remote };
+  const [fed, board, google, remote] = await Promise.all([usajobs(p), adzuna(p), jsearch(p), remotive(p)]);
+  const seen = new Set();
+  const local = [...google, ...board, ...fed].filter((j) => {
+    const k = `${j.title}|${j.company}`.toLowerCase().replace(/\s+/g, " ");
+    return !seen.has(k) && seen.add(k);
+  });
+  return { local, remote };
 }
 
 // "$14/hour" -> 29120 a year; "70K-80K" -> 70000-80000. Unparseable text stays as text only.

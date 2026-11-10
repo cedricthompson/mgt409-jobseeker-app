@@ -33,6 +33,7 @@ feature that the agents read from and write to.
 - **Live sources (optional, in [`server/sources.js`](server/sources.js)):**
   - [USAJobs](https://developer.usajobs.gov): federal jobs with clearance requirements. Set `USAJOBS_API_KEY` and `USAJOBS_EMAIL`.
   - [Adzuna](https://developer.adzuna.com): jobs from many boards and company sites. Set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`.
+  - [JSearch](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) (Google for Jobs): listings posted on LinkedIn, Indeed, Glassdoor, ZipRecruiter, and company sites. Set `JSEARCH_API_KEY` (free plan: about 200 searches a month). Indeed and LinkedIn have no public job search API and don't allow scraping, so this is how their listings come in.
   - [Remotive](https://remotive.com): remote jobs, no key needed.
 - **Commute times:** without a key, the app estimates door-to-door time by car, public transit, bike, or walking. With `GOOGLE_MAPS_API_KEY` set, it uses real routes and transit schedules from each agency (WMATA in DC, the MTA in New York, and others).
 - **To switch:** leave the optional keys blank to use only the sample data, or fill them in to add live jobs. A source that is missing a key or fails is skipped.

@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from 'react-native';
@@ -7,6 +7,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../theme';
 import { API_URL, session, Prefs, Profile } from '../api';
+import MicButton from '../components/MicButton';
+import { voiceFor } from './SettingsScreen';
 
 
 type ImportResult = { profile: Profile; summary: string; missing: string[] };
@@ -19,6 +21,7 @@ export default function ImportScreen({ prefs, onBack, onContinue }: {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
+  const typedBefore = useRef('');
 
   async function runImport(kind: 'text' | 'pdf' | 'image', data: string, mimeType?: string) {
     setLoading(true); setError(''); setResult(null);
@@ -98,6 +101,13 @@ export default function ImportScreen({ prefs, onBack, onContinue }: {
           placeholderTextColor="#595959"
           accessibilityLabel="Resume text"
           accessibilityHint="Paste or dictate your resume or LinkedIn profile"
+        />
+
+        <MicButton
+          language={voiceFor(prefs.language)}
+          disabled={loading}
+          onStart={() => { typedBefore.current = resumeText ? `${resumeText.trim()} ` : ''; }}
+          onText={(spoken) => setResumeText(typedBefore.current + spoken)}
         />
 
         <View style={styles.row}>
