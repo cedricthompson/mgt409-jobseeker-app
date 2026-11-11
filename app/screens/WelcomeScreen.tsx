@@ -17,7 +17,7 @@ const PHOTOS: { source: number; alt: string }[] = [
 
 // Example Predictability Scores shown in the hero, so people see what they'll get before starting.
 const EXAMPLES = [
-  { title: 'Kitchen Manager', where: 'Columbus, OH · $52K', score: 86, verdict: 'Worth applying', note: 'Strong fit: 3 years leading the grill line' },
+  { title: 'Kitchen Manager', where: 'Columbus, OH · $47.5K', score: 77, verdict: 'Worth applying', note: 'Good fit: 3 years leading the grill line. 46% chance of an interview.' },
   { title: 'Restaurant General Manager', where: 'Columbus, OH · $68K', score: 38, verdict: 'Long shot for now', note: 'Most hires have 5+ years managing budgets' },
 ];
 
@@ -38,8 +38,8 @@ const STEPS = [
   { coach: 'coach', title: 'Apply with confidence', text: 'A tailored resume, cover letter, and follow-ups for the jobs worth your time.' },
 ];
 
-export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccount, accountEmail, onSettings }: {
-  onStart: (method?: StartMethod) => void; onTracker: () => void; onCheckJob: () => void; onAccount?: () => void; accountEmail: string | null;
+export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorecard, onAccount, accountEmail, onSettings }: {
+  onStart: (method?: StartMethod) => void; onTracker: () => void; onCheckJob: () => void; onScorecard: () => void; onAccount?: () => void; accountEmail: string | null;
   onSettings: () => void; reduceMotion?: boolean;
 }) {
   // Step cards: five across on wide screens, three then two on tablets, one per row on phones.
@@ -57,6 +57,9 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
             <Wordmark size={30} />
           </View>
           <View style={styles.topLinks}>
+            <Pressable onPress={onScorecard} accessibilityRole="button" accessibilityLabel="See the Predictability Scorecard" style={styles.topLink}>
+              <Text style={styles.topLinkText}>Scorecard</Text>
+            </Pressable>
             <Pressable onPress={onSettings} accessibilityRole="button" accessibilityLabel="Appearance, accessibility, and language settings" style={styles.topLink}>
               <Text style={styles.topLinkText}>Settings</Text>
             </Pressable>
@@ -125,6 +128,9 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
               </View>
             );
           })}
+          <Pressable onPress={onScorecard} accessibilityRole="button" accessibilityLabel="See a full sample scorecard" style={styles.textLink}>
+            <Text style={styles.textLinkText}>See a full sample scorecard →</Text>
+          </Pressable>
         </View>
 
         {PHOTOS.length > 0 && (

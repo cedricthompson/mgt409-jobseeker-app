@@ -12,12 +12,13 @@ import CoachScreen, { CoachTask } from './screens/CoachScreen';
 import { TrackedJob } from './tracker';
 import SettingsScreen from './screens/SettingsScreen';
 import CheckJobScreen from './screens/CheckJobScreen';
+import ScoreScreen from './screens/ScoreScreen';
 import AccountScreen from './screens/AccountScreen';
 import { getAccount, pull, scheduleSync } from './account';
 import { API_URL } from './api';
 import { StartMethod } from './start';
 
-type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings' | 'check' | 'account';
+type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings' | 'check' | 'account' | 'score';
 
 export default function App() {
   const [screen, setScreenState] = useState<Screen>('welcome');
@@ -64,10 +65,18 @@ export default function App() {
           onStart={(m?: StartMethod) => { setStartMethod(m); setScreen('import'); }}
           onTracker={() => setScreen('tracker')}
           onCheckJob={() => setScreen('check')}
+          onScorecard={() => setScreen('score')}
           onAccount={accountsOn ? () => setScreen('account') : undefined}
           accountEmail={accountEmail}
           onSettings={() => setScreen('settings')}
           reduceMotion={prefs.reduce_motion}
+        />
+      )}
+      {screen === 'score' && (
+        <ScoreScreen
+          onBack={() => setScreen('welcome')}
+          onStart={() => { setStartMethod(undefined); setScreen('import'); }}
+          onCheckJob={() => setScreen('check')}
         />
       )}
       {screen === 'settings' && <SettingsScreen prefs={prefs} onChange={setPrefs} onBack={() => setScreenState(previous === 'settings' ? 'welcome' : previous)} />}

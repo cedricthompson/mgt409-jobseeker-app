@@ -20,16 +20,20 @@ const PALETTES = {
     bg: '#FFFFFF',       // page background
     surface: '#FFFFFF',  // cards
     onAccent: '#FFFFFF', // text on blue or red fills
+    // Accents for the scorecard's areas (5:1 or better on white).
+    teal: '#0F766E', purple: '#6D28D9', orange: '#B45309', green: '#15803D',
   },
   // On #121418: blue 5.7:1, red 5.5:1, ink 16.6:1, muted 10.1:1. Text on fills is dark (5.5:1 or better).
   dark: {
     red: '#F2545F', blue: '#6E8BE6', blueDark: '#5573CF', ink: '#F1F3F7', muted: '#B9C0CC',
     line: '#3A4152', tint: '#1C2028', bg: '#121418', surface: '#1C2028', onAccent: '#121418',
+    teal: '#2DD4BF', purple: '#C4B5FD', orange: '#FDBA74', green: '#86EFAC',
   },
   // Darker brand colors and black text for low vision: blue 10.3:1, red 7.9:1 on white.
   contrast: {
     red: '#A3121E', blue: '#1C3A8C', blueDark: '#122966', ink: '#000000', muted: '#1A1A1A',
     line: '#4A4A4A', tint: '#EEF1F8', bg: '#FFFFFF', surface: '#FFFFFF', onAccent: '#FFFFFF',
+    teal: '#0B5550', purple: '#4C1D95', orange: '#7C2D12', green: '#14532D',
   },
 };
 
