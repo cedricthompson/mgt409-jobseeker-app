@@ -4,6 +4,7 @@ import { coachFor } from '../team';
 import Avatar from '../components/Avatar';
 import { APP_NAME, APP_TAGLINE } from '../brand';
 import Wordmark from '../components/Wordmark';
+import { START_METHODS, StartMethod } from '../start';
 import { PROMO_MINUTES } from '../components/Promo';
 
 // Photos of job seekers for the opening page. Each needs alt text for screen readers.
@@ -38,12 +39,13 @@ const STEPS = [
 ];
 
 export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccount, accountEmail, onSettings }: {
-  onStart: () => void; onTracker: () => void; onCheckJob: () => void; onAccount?: () => void; accountEmail: string | null;
+  onStart: (method?: StartMethod) => void; onTracker: () => void; onCheckJob: () => void; onAccount?: () => void; accountEmail: string | null;
   onSettings: () => void; reduceMotion?: boolean;
 }) {
   // Step cards: five across on wide screens, three then two on tablets, one per row on phones.
   const { width } = useWindowDimensions();
   const stepWidth = width >= 1100 ? '18.4%' : width >= 640 ? '31%' : '100%';
+  const startWidth = width >= 1100 ? '23.5%' : width >= 520 ? '48%' : '100%';
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.page}>
@@ -78,22 +80,25 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
             <Text style={styles.bold}>Predictability Score</Text> from 0 to 100 that estimates your chances of an
             interview and an offer. Spend your time on the jobs you're likely to land, and skip the ones that won't call back.
           </Text>
-          <View style={styles.ctaRow}>
-            <Pressable
-              style={({ pressed }) => [styles.cta, pressed && { backgroundColor: colors.blueDark }]}
-              onPress={onStart} accessibilityRole="button" accessibilityLabel="Get started"
-              accessibilityHint="Begin building your job profile"
-            >
-              <Text style={styles.ctaText}>Get started free</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [styles.ctaSecondary, pressed && { backgroundColor: colors.tint }]}
-              onPress={onTracker} accessibilityRole="button" accessibilityLabel="My applications"
-            >
-              <Text style={styles.ctaSecondaryText}>My applications</Text>
-            </Pressable>
+          <Text style={styles.h3} role="heading" aria-level={2}>Four ways to start your future</Text>
+          <View style={styles.startGrid}>
+            {START_METHODS.map((m) => (
+              <Pressable
+                key={m.key}
+                onPress={() => onStart(m.key)}
+                style={({ pressed }) => [styles.startCard, { width: startWidth }, pressed && { borderColor: colors.blue, backgroundColor: colors.tint }]}
+                accessibilityRole="button" accessibilityLabel={m.title} accessibilityHint={m.hint}
+              >
+                <Text style={styles.startIcon} accessibilityElementsHidden importantForAccessibility="no">{m.icon}</Text>
+                <Text style={styles.startTitle}>{m.title}</Text>
+                <Text style={type.small}>{m.hint}</Text>
+                <Text style={styles.startGo} accessibilityElementsHidden importantForAccessibility="no">Start →</Text>
+              </Pressable>
+            ))}
           </View>
-          <Text style={type.small}>Takes about {PROMO_MINUTES} minutes. No account needed.</Text>
+          <Text style={type.small}>Takes about {PROMO_MINUTES} minutes. No account needed.{' '}
+            <Text style={styles.inlineLink} onPress={onTracker} accessibilityRole="link">See my applications</Text>
+          </Text>
           <Pressable onPress={onCheckJob} accessibilityRole="button" accessibilityLabel="Check a job you found" style={styles.textLink}>
             <Text style={styles.textLinkText}>Found a job on Indeed or LinkedIn? Check your chances →</Text>
           </Pressable>
@@ -172,7 +177,7 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
           <Text style={styles.closingTitle} role="heading" aria-level={2}>Ready to see what your future holds?</Text>
           <Pressable
             style={({ pressed }) => [styles.ctaLight, pressed && { opacity: 0.85 }]}
-            onPress={onStart} accessibilityRole="button" accessibilityLabel="Get started"
+            onPress={() => onStart()} accessibilityRole="button" accessibilityLabel="Get started"
           >
             <Text style={styles.ctaLightText}>Get started free</Text>
           </Pressable>
@@ -217,6 +222,13 @@ const styles = themed(() => {
   photoGrid: { flexDirection: 'row', gap: space.sm },
   photo: { flex: 1, height: 190, borderRadius: 16 },
   h2: { fontSize: 30, lineHeight: 36, fontWeight: '800', color: colors.ink, letterSpacing: -0.3 },
+  h3: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: colors.ink, marginTop: space.sm },
+  startGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
+  startCard: { ...card, borderWidth: 2, gap: 6, minHeight: 160, shadowColor: '#1A1A1A', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
+  startIcon: { fontSize: 30, lineHeight: 38 },
+  startTitle: { fontSize: 19, lineHeight: 24, fontWeight: '800', color: colors.ink },
+  startGo: { fontSize: 16, fontWeight: '800', color: colors.blue, marginTop: 'auto' },
+  inlineLink: { color: colors.blue, fontWeight: '700', textDecorationLine: 'underline' },
   stepGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, justifyContent: 'center' },
   stepCard: { ...card, alignItems: 'center', gap: space.sm, paddingVertical: space.lg },
   stepNum: { fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.red, textTransform: 'uppercase' },

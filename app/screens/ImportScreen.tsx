@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, Switch, Text, TextInput, View,
+  ActivityIndicator, Linking, Platform, Pressable, SafeAreaView, ScrollView, Switch, Text, TextInput, View,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,13 +9,15 @@ import { colors, themed } from '../theme';
 import { API_URL, session, Prefs, Profile } from '../api';
 import MicButton from '../components/MicButton';
 import { voiceFor } from './SettingsScreen';
+import { LINKEDIN_STEPS, SPEAK_PROMPTS, START_METHODS, StartMethod } from '../start';
 
 
 type ImportResult = { profile: Profile; summary: string; missing: string[] };
 
-export default function ImportScreen({ prefs, onBack, onContinue }: {
-  prefs: Prefs; onBack: () => void; onContinue: (p: Profile, prefs: Prefs) => void;
+export default function ImportScreen({ prefs, method, onBack, onContinue }: {
+  prefs: Prefs; method?: StartMethod; onBack: () => void; onContinue: (p: Profile, prefs: Prefs) => void;
 }) {
+  const chosen = START_METHODS.find((m) => m.key === method);
   const [resumeText, setResumeText] = useState('');
   const [plainLanguage, setPlainLanguage] = useState(!!prefs.plain_language);
   const [loading, setLoading] = useState(false);
@@ -75,6 +77,24 @@ export default function ImportScreen({ prefs, onBack, onContinue }: {
     </Pressable>
   );
 
+  const primaryButton = (label: string, hint: string, onPress: () => void) => (
+    <Pressable
+      style={({ pressed }) => [styles.button, loading && styles.buttonDisabled, pressed && styles.buttonPressed]}
+      onPress={onPress} disabled={loading}
+      accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} accessibilityState={{ disabled: loading }}
+    >
+      <Text style={styles.buttonText}>{label}</Text>
+    </Pressable>
+  );
+
+  const otherWays = (
+    <View style={styles.buttonRow}>
+            {actionButton('Upload PDF', 'Choose a resume or LinkedIn PDF from your device', pickPdf)}
+            {actionButton('Take a photo', 'Use your camera to photograph a printed resume', () => pickPhoto(true))}
+            {actionButton('Choose a photo', 'Pick a photo of your resume from your device', () => pickPhoto(false))}
+          </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -82,15 +102,46 @@ export default function ImportScreen({ prefs, onBack, onContinue }: {
           <Text style={styles.backText}>‹ Home</Text>
         </Pressable>
         <Text style={styles.title} role="heading" aria-level={1}>Build your job profile</Text>
-        <Text style={styles.body}>
-          Upload your resume, take a photo of it, or paste or speak it below. LinkedIn tip: on your profile, choose More, then Save to PDF.
-        </Text>
+        {!chosen && (
+          <Text style={styles.body}>
+            Upload your resume, take a photo of it, or paste or speak it below. LinkedIn tip: on your profile, choose More, then Save to PDF.
+          </Text>
+        )}
 
-        <View style={styles.buttonRow}>
-          {actionButton('Upload PDF', 'Choose a resume or LinkedIn PDF from your device', pickPdf)}
-          {actionButton('Take a photo', 'Use your camera to photograph a printed resume', () => pickPhoto(true))}
-          {actionButton('Choose a photo', 'Pick a photo of your resume from your device', () => pickPhoto(false))}
-        </View>
+        {chosen && (
+          <View style={styles.focus}>
+            <Text style={styles.subtitle} role="heading" aria-level={2}>{chosen.icon}  {chosen.title}</Text>
+            {method === 'resume' && (
+              <>
+                <Text style={styles.body}>Choose your resume PDF. We'll read it and fill in your profile for you.</Text>
+                {primaryButton('Upload resume PDF', 'Choose a resume PDF from your device', pickPdf)}
+              </>
+            )}
+            {method === 'linkedin' && (
+              <>
+                {LINKEDIN_STEPS.map((step, i) => <Text key={step} style={styles.body}>{i + 1}. {step}</Text>)}
+                {actionButton('Open LinkedIn', 'Opens LinkedIn so you can save your profile as a PDF', () => Linking.openURL('https://www.linkedin.com/'))}
+                {primaryButton('Upload LinkedIn PDF', 'Choose the profile PDF you saved from LinkedIn', pickPdf)}
+              </>
+            )}
+            {method === 'photo' && (
+              <>
+                <Text style={styles.body}>Lay your resume flat in good light and make sure all the text is in the picture.</Text>
+                {primaryButton('Take a photo', 'Use your camera to photograph a printed resume', () => pickPhoto(true))}
+                {actionButton('Choose a photo instead', 'Pick a photo of your resume from your device', () => pickPhoto(false))}
+              </>
+            )}
+            {method === 'speak' && (
+              <>
+                <Text style={styles.body}>Tap Speak and talk naturally. You can stop and start, and fix anything before you send it. Try to cover:</Text>
+                {SPEAK_PROMPTS.map((p) => <Text key={p} style={styles.body}>• {p}</Text>)}
+              </>
+            )}
+          </View>
+        )}
+        {chosen && method !== 'speak' && <Text style={styles.subtitle} role="heading" aria-level={2}>Other ways</Text>}
+
+        {method !== 'speak' && otherWays}
 
         <TextInput
           style={styles.input}
@@ -130,6 +181,13 @@ export default function ImportScreen({ prefs, onBack, onContinue }: {
         >
           <Text style={styles.buttonText}>{loading ? 'Reading your resume…' : 'Build my profile'}</Text>
         </Pressable>
+
+        {method === 'speak' && (
+          <>
+            <Text style={styles.subtitle} role="heading" aria-level={2}>Or upload something instead</Text>
+            {otherWays}
+          </>
+        )}
 
         {loading && <ActivityIndicator size="large" color={colors.blue} accessibilityLabel="Loading" />}
 
@@ -184,6 +242,7 @@ const styles = themed(() => ({
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, flexGrow: 1,
   },
   secondaryButtonText: { color: colors.blue, fontSize: 18, fontWeight: '700' },
+  focus: { backgroundColor: colors.tint, borderRadius: 16, padding: 20, gap: 12, borderWidth: 2, borderColor: colors.blue },
   card: { borderWidth: 2, borderColor: colors.blue, borderRadius: 8, padding: 16, gap: 8 },
   error: { fontSize: 18, color: colors.red },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },

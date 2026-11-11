@@ -15,6 +15,7 @@ import CheckJobScreen from './screens/CheckJobScreen';
 import AccountScreen from './screens/AccountScreen';
 import { getAccount, pull, scheduleSync } from './account';
 import { API_URL } from './api';
+import { StartMethod } from './start';
 
 type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings' | 'check' | 'account';
 
@@ -24,6 +25,7 @@ export default function App() {
   const setScreen = (s: Screen) => { setPrevious(screen); setScreenState(s); };
   const [profile, setProfileState] = useState<Profile>({});
   const [prefs, setPrefsState] = useState<Prefs>({});
+  const [startMethod, setStartMethod] = useState<StartMethod | undefined>();
   const [coachFor, setCoachFor] = useState<{ item: TrackedJob; task: CoachTask } | null>(null);
 
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function App() {
     <Fragment key={themeKey}>
       {screen === 'welcome' && (
         <WelcomeScreen
-          onStart={() => setScreen('import')}
+          onStart={(m?: StartMethod) => { setStartMethod(m); setScreen('import'); }}
           onTracker={() => setScreen('tracker')}
           onCheckJob={() => setScreen('check')}
           onAccount={accountsOn ? () => setScreen('account') : undefined}
@@ -72,6 +74,7 @@ export default function App() {
       {screen === 'import' && (
         <ImportScreen
           prefs={prefs}
+          method={startMethod}
           onBack={() => setScreen('welcome')}
           onContinue={(p, pr) => { setProfile(p); setPrefs(pr); setScreen('chat'); }}
         />
@@ -99,7 +102,7 @@ export default function App() {
           prefs={prefs}
           onBack={() => setScreenState(previous === 'check' ? 'welcome' : previous)}
           onTracker={() => setScreen('tracker')}
-          onBuildProfile={() => setScreen('import')}
+          onBuildProfile={() => { setStartMethod(undefined); setScreen('import'); }}
         />
       )}
       {screen === 'tracker' && (
