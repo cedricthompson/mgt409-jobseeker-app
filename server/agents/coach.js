@@ -20,7 +20,7 @@ Reply ONLY with JSON: {"title": string, "content": string, "tips": [string]}
 "content" is plain text ready to copy, with line breaks. "tips" is 2-3 short suggestions for improving it before sending.`;
 
 export async function coach({ task, profile = {}, job = {}, tracked = {}, session, prefs }) {
-  if (!TASKS[task]) throw new Error(`Unknown coach task: ${task}`);
+  if (!TASKS[task]) throw Object.assign(new Error(`Unknown coach task: ${task}`), { status: 400 });
   const jobInfo = { title: job.title, company: job.company, city: job.city, summary: job.summary, skills: job.skills,
     required_certs: job.required_certs, clearance: job.clearance };
   const { text } = await chat(

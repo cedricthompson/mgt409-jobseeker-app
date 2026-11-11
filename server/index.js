@@ -48,7 +48,9 @@ async function readJson(req) {
     raw += chunk;
     if (raw.length > MAX_BODY) throw Object.assign(new Error("Upload too large (8 MB max)."), { status: 413 });
   }
-  return raw ? JSON.parse(raw) : {};
+  if (!raw) return {};
+  try { return JSON.parse(raw); }
+  catch { throw Object.assign(new Error("The request wasn't valid JSON."), { status: 400 }); }
 }
 
 const routes = {
@@ -89,7 +91,7 @@ function serveWeb(req, res) {
   res.end(req.method === "HEAD" ? undefined : readFileSync(file));
 }
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") return send(res, 204, {});
   const path = req.url.split("?")[0];
   if (!path.startsWith("/api/")) return ["GET", "HEAD"].includes(req.method) ? serveWeb(req, res) : send(res, 404, { error: "Not found" });
@@ -104,6 +106,17 @@ createServer(async (req, res) => {
     send(res, 200, await handler(req));
   } catch (err) {
     if (err.status === 413) res.shouldKeepAlive = false; // unread upload data would break the next request
+    if (!err.status) console.error(`${req.method} ${path} failed:`, err.message);
     send(res, err.status || 500, { error: err.message });
   }
-}).listen(PORT, () => console.log(`Running at http://localhost:${PORT}`));
+});
+
+// Render's proxy keeps connections to the app open and reuses them. Node's default 5-second idle
+// timeout closed them first, so a reused connection was reset (seen as dropped requests and 502s).
+// Idle connections now stay open longer than the proxy's, and headersTimeout must exceed keepAliveTimeout.
+server.keepAliveTimeout = 120_000;
+server.headersTimeout = 125_000;
+server.listen(PORT, () => console.log(`Running at http://localhost:${PORT}`));
+
+// A stray promise rejection is logged instead of crashing the server for everyone.
+process.on("unhandledRejection", (err) => console.error("Unhandled rejection:", err));
