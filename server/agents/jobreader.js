@@ -15,6 +15,7 @@ import { isIP } from "node:net";
 import { chat } from "../llm.js";
 import { SAFETY } from "./common.js";
 import { scorecard } from "./scorecard.js";
+import { requirementsText } from "../sources.js";
 import { markHiringNow } from "../sources.js";
 
 const MAX_PAGE = 2 * 1024 * 1024; // read at most 2 MB of any page
@@ -184,7 +185,7 @@ export async function readJob({ url, text, session }) {
     lat: null, lng: null, work_mode: pick(facts.work_mode, ai.work_mode) || "onsite",
     pay_min: pick(facts.pay_min, money(ai.pay_min)), pay_max: pick(facts.pay_max, money(ai.pay_max)),
     experience_years: ai.experience_years ?? null, required_certs: ai.required_certs || [], clearance: /^(none|n\/a|not required)$/i.test(ai.clearance || "") ? null : ai.clearance || null,
-    skills: ai.skills || [], summary: ai.summary || "", url: link, source,
+    skills: ai.skills || [], summary: ai.summary || "", description: requirementsText(text), url: link, source,
   };
 }
 

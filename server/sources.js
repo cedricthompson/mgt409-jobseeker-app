@@ -91,7 +91,7 @@ async function usajobsSearch(keyword, city, key, email) {
         city: d.PositionLocationDisplay, lat: d.PositionLocation?.[0]?.Latitude ?? null, lng: d.PositionLocation?.[0]?.Longitude ?? null, work_mode: d.UserArea?.Details?.TeleworkEligible ? "hybrid" : "onsite",
         pay_min: yearly ? Number(pay.MinimumRange) : null, pay_max: yearly ? Number(pay.MaximumRange) : null,
         clearance: d.UserArea?.Details?.SecurityClearance || null,
-        summary: (d.QualificationSummary || "").slice(0, 300), url: d.PositionURI, source: "USAJobs",
+        summary: (d.QualificationSummary || "").slice(0, 300), description: requirementsText(d.QualificationSummary), url: d.PositionURI, source: "USAJobs",
       };
     });
   } catch (err) {
@@ -127,7 +127,7 @@ export async function adzuna(p) {
     lat: j.latitude ?? null, lng: j.longitude ?? null, work_mode: "onsite",
     pay_min: j.salary_min ? Math.round(j.salary_min) : null, pay_max: j.salary_max ? Math.round(j.salary_max) : null,
     pay_estimated: String(j.salary_is_predicted) === "1", // Adzuna's own estimate, not posted by the employer
-    summary: (j.description || "").slice(0, 300), url: j.redirect_url, source: "Adzuna",
+    summary: (j.description || "").slice(0, 300), description: requirementsText(j.description), url: j.redirect_url, source: "Adzuna",
   }));
 }
 
@@ -169,7 +169,7 @@ export async function jsearch(p) {
           city: [j.job_city, j.job_state].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : null),
           lat: j.job_latitude ?? null, lng: j.job_longitude ?? null, work_mode: j.job_is_remote ? "remote" : "onsite",
           pay_min: yearly || hourly ? toYear(j.job_min_salary) : null, pay_max: yearly || hourly ? toYear(j.job_max_salary) : null,
-          summary: (j.job_description || "").slice(0, 300), url: j.job_apply_link,
+          summary: (j.job_description || "").slice(0, 300), description: requirementsText(j.job_description), url: j.job_apply_link,
           source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
         };
       });
@@ -179,6 +179,18 @@ export async function jsearch(p) {
     }
   };
   return (await Promise.all(queries.map(one))).flat();
+}
+
+// The part of a job description the Scorecard needs to compare skills: the requirements, not the company intro.
+// Starts at the first "Qualifications" / "Requirements" / "What you'll need" style heading when there is one,
+// and keeps up to 2,500 characters (enough for the full requirements list in nearly every posting).
+const REQ_HEADING = /(minimum |preferred |basic |required )?(qualifications|requirements|what you('|’)ll (need|bring)|what we('|’)re looking for|skills and experience|who you are|you have|must have)/i;
+export function requirementsText(text, max = 2500) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (t.length <= max) return t;
+  const at = t.search(REQ_HEADING);
+  const start = at > 0 ? Math.max(0, at - 150) : 0;
+  return t.slice(start, start + max);
 }
 
 // Remotive (remote jobs). No key needed.

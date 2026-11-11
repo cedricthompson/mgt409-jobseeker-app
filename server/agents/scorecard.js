@@ -9,6 +9,7 @@ import { SAFETY, accessibility } from "./common.js";
 import { jobFacts } from "./fairness.js";
 import { recall, remember } from "../memo.js";
 import { createHash } from "node:crypto";
+import { candidates, occupation } from "../onet.js";
 
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 const CLEARANCE = ["none", "public trust", "secret", "top secret", "ts/sci"];
@@ -91,12 +92,21 @@ const COMPETITION = { low: 1.25, medium: 1, high: 0.7 };
 const LEVEL = { entry: 1.2, mid: 1, senior: 0.7 };
 const range = (lo, hi) => (n) => Math.max(lo, Math.min(hi, Math.round(n)));
 
+const toOdds = (p) => p / (1 - p), toP = (o) => o / (1 + o);
+// Fit changes the odds, not just the percentage. The family's starting point is the average applicant, and
+// most applicant pools include many people who don't meet the requirements, so a strong match does far better:
+// at a typical fit (55) you get the family's average odds; every 10 points higher multiplies your odds of an
+// interview by about 1.5 (a perfect fit, about 6 times), and every 10 points lower divides them the same way.
+// Getting the offer once interviewed depends on fit too, but less (about 2.5 times from typical to perfect).
+const TYPICAL_FIT = 0.55;
 export function predict(labels, fit, parts) {
   const fam = FAMILIES[labels.family] || FAMILIES.other;
   const comp = COMPETITION[labels.competition] ?? 1, level = LEVEL[labels.level] ?? 1;
   const f = fit / 100; // overall fit, 0 to 1
-  const interview = range(2, 90)(fam.interview * (0.4 + 1.2 * f) * comp);
-  const hire = Math.min(interview, range(1, 80)(interview * fam.hire * (0.6 + 0.8 * f)));
+  const base = Math.min(0.9, (fam.interview / 100) * comp);
+  const interview = range(2, 90)(100 * toP(toOdds(base) * Math.exp(4 * (f - TYPICAL_FIT))));
+  const offerOnceInterviewed = toP(toOdds(fam.hire) * Math.exp(2 * (f - TYPICAL_FIT)));
+  const hire = Math.min(interview, range(1, 80)(interview * offerOnceInterviewed));
   const promotion_1yr = range(1, 50)(fam.promo * (0.6 + 0.8 * f) * level);
   // Long commutes and pay below target are two of the most common reasons people leave a new job.
   let adjust = 0;
@@ -104,9 +114,11 @@ export function predict(labels, fit, parts) {
   if (parts.pay?.score != null) adjust += parts.pay.score < 60 ? -6 : parts.pay.score >= 90 ? 4 : 0;
   const r = range(5, 97);
   const retain_12 = r(fam.r12 + adjust), retain_18 = Math.min(retain_12, r(fam.r18 + adjust)), retain_24 = Math.min(retain_18, r(fam.r24 + adjust));
-  const basis = `Based on typical patterns for ${fam.label} jobs (about ${fam.r12}% of new hires are still there after a year), ` +
-    `${labels.competition || "medium"} competition, and your fit of ${fit} out of 100` +
-    `${adjust < 0 ? ", lowered a little for the commute or pay" : adjust > 0 ? ", raised a little because the pay meets your target" : ""}.`;
+  const vs = Math.round(100 * base);
+  const basis = `For ${fam.label} jobs with ${labels.competition || "medium"} competition, a typical applicant has about a ${vs}% chance of an interview. ` +
+    `Your fit of ${fit} out of 100 ${f > TYPICAL_FIT + 0.05 ? "raises" : f < TYPICAL_FIT - 0.05 ? "lowers" : "keeps"} your odds ` +
+    `${Math.abs(f - TYPICAL_FIT) > 0.05 ? `to ${interview}%` : `near ${interview}%`}. About ${fam.r12}% of new hires in these jobs are still there after a year` +
+    `${adjust < 0 ? "; yours is a little lower because of the commute or pay" : adjust > 0 ? "; yours is a little higher because the pay meets your target" : ""}.`;
   return { predictions: { interview, hire, promotion_1yr, retain_12, retain_18, retain_24 }, basis };
 }
 
@@ -114,15 +126,41 @@ const SYSTEM = `You are the Scorecard agent of a job search app. For each job, u
 1. "family": the job family, one of: ${Object.keys(FAMILIES).join(", ")}. Use government_federal for U.S. federal agency jobs.
 2. "level": entry, mid, or senior.
 3. "competition": low, medium, or high (how many qualified applicants such a job usually draws; remote and well-paid professional jobs are high).
-4. "skills": a skills match score 0-100 (a multiple of 5) with a one-sentence reason, judged only from the applicant's real skills and experience.
-5. "explanation": one sentence on what most helps or hurts this applicant's chances. Do not state percentages.
-6. "improve": the single most useful action to raise the applicant's chances.
+4. "onet": the code of the O*NET occupation from "onet_options" that best fits the job, or null if none fits.
+5. "requirements": 6 to 10 requirements this job needs, most important first. Take them from the job's description first
+   (marked "from": "listing"); when the description says little, add core skills or knowledge from the chosen O*NET occupation
+   ("from": "onet"). Name each one plainly in a few words (e.g. "Grant writing", "WIOA program knowledge", "Budget management").
+   For each, "have": true only when the applicant's profile shows it (directly, or clearly through equivalent experience),
+   and "evidence": a few words from their background that show it, or what's missing.
+6. "experience_years": the years of experience the job asks for (a number), or null if not stated.
+7. "certs": certifications or licenses the job requires (not just prefers), or [].
+8. "explanation": one sentence on what most helps or hurts this applicant's chances. Do not state percentages.
+9. "improve": the single most useful action to raise the applicant's chances.
+Judge only from the applicant's real skills and experience. Senior experience that covers a requirement counts.
 Use only job-related factors. Never use or infer protected traits (race, gender, age, disability, religion, national origin).
 ${SAFETY}
-Reply ONLY with JSON: {"jobs": [{"id": string, "family": string, "level": string, "competition": string, "skills": {"score": number, "note": string}, "explanation": string, "improve": string}]}`;
+Reply ONLY with JSON: {"jobs": [{"id": string, "family": string, "level": string, "competition": string, "onet": string | null,
+"requirements": [{"skill": string, "from": "listing" | "onet", "have": boolean, "evidence": string}],
+"experience_years": number | null, "certs": [string], "explanation": string, "improve": string}]}`;
 
+// What the model sees for each job: the requirements part of the description (not just a 300-character
+// snippet) and the closest O*NET occupations, with their core skills, knowledge, and in-demand software.
 const jobView = (job) => ({ title: job.title, company: job.company, city: job.city, mode: job.work_mode, skills: job.skills,
-  summary: job.summary, clearance: job.clearance, certs: job.required_certs, exp_years: job.experience_years });
+  description: job.description || job.summary, clearance: job.clearance, certs: job.required_certs, exp_years: job.experience_years,
+  onet_options: candidates(job.title, 4).map((o) => ({ code: o.code, title: o.title, skills: o.skills, knowledge: o.knowledge, software: o.tech.slice(0, 5) })) });
+
+// Skills score from the requirement list: listing requirements count twice as much as O*NET's general ones.
+function skillsFromRequirements(reqs) {
+  if (!reqs.length) return { score: null, note: "The job's requirements weren't clear enough to compare." };
+  const weight = (r) => (r.from === "onet" ? 1 : 2);
+  const total = reqs.reduce((s, r) => s + weight(r), 0);
+  const have = reqs.filter((r) => r.have).reduce((s, r) => s + weight(r), 0);
+  const missing = reqs.filter((r) => !r.have).map((r) => r.skill);
+  const n = reqs.filter((r) => r.have).length;
+  return { score: clamp((100 * have) / total), note: `You have ${n} of the ${reqs.length} skills this job needs` +
+    (missing.length ? `. Missing: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? ", and more" : ""}.` : ", all of them.") };
+}
+
 const hash = (x) => createHash("sha256").update(JSON.stringify(x)).digest("hex");
 
 export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
@@ -143,7 +181,7 @@ export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
   // Look up judgments already made for this applicant and job; ask the model only about new ones.
   const applicant = jobFacts(profile);
   const lang = accessibility(prefs);
-  const keyOf = (job) => hash({ v: 1, SYSTEM, lang, applicant, job: jobView(job) });
+  const keyOf = (job) => hash({ v: 2, SYSTEM, lang, applicant, job: jobView(job) });
   const keys = coded.map(({ job }) => keyOf(job));
   const known = await recall(keys);
   const todo = coded.filter((_, i) => !known[keys[i]]);
@@ -159,10 +197,14 @@ export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
     for (const j of JSON.parse(text).jobs || []) {
       const item = todo[Number(j.id)];
       if (!item) continue;
+      const requirements = (Array.isArray(j.requirements) ? j.requirements : []).slice(0, 10)
+        .filter((r) => r && r.skill).map((r) => ({ skill: String(r.skill), from: r.from === "onet" ? "onet" : "listing", have: r.have === true, evidence: String(r.evidence || "") }));
       const value = {
         family: FAMILIES[j.family] ? j.family : "other", level: LEVEL[j.level] ? j.level : "mid",
         competition: COMPETITION[j.competition] ? j.competition : "medium",
-        skills: { score: Number.isFinite(j.skills?.score) ? Math.round(j.skills.score / 5) * 5 : null, note: j.skills?.note || "" },
+        onet: occupation(j.onet) ? j.onet : null, requirements,
+        experience_years: Number.isFinite(j.experience_years) ? j.experience_years : null,
+        certs: Array.isArray(j.certs) ? j.certs.map(String).slice(0, 5) : [],
         explanation: j.explanation || "", improve: j.improve || "",
       };
       const key = keyOf(item.job);
@@ -174,10 +216,16 @@ export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
 
   return coded.map(({ job, parts }, i) => {
     const ai = known[keys[i]] || {};
-    const all = { ...parts, skills: ai.skills?.score != null ? ai.skills : { score: null, note: "Not scored." } };
+    // Listings rarely state years or certifications in a structured way, so use what the model read from the description.
+    const read = { ...job, experience_years: job.experience_years ?? ai.experience_years ?? null,
+      required_certs: job.required_certs?.length ? job.required_certs : ai.certs || [] };
+    const all = { ...parts, credentials: credentialScore(read, profile), experience: experienceScore(read, profile),
+      skills: skillsFromRequirements(ai.requirements || []) };
     const fit = overall(all);
     const { predictions, basis } = predict(ai, fit, all);
+    const occ = occupation(ai.onet);
     return { id: job.id, overall: fit, parts: all, predictions, basis, labels: { family: ai.family, level: ai.level, competition: ai.competition },
+      requirements: ai.requirements || [], occupation: occ ? { code: occ.code, title: occ.title } : null,
       explanation: ai.explanation, improve: ai.improve };
   });
 }
