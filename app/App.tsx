@@ -11,8 +11,11 @@ import CoachScreen, { CoachTask } from './screens/CoachScreen';
 import { TrackedJob } from './tracker';
 import SettingsScreen from './screens/SettingsScreen';
 import CheckJobScreen from './screens/CheckJobScreen';
+import AccountScreen from './screens/AccountScreen';
+import { getAccount, pull, scheduleSync } from './account';
+import { API_URL } from './api';
 
-type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings' | 'check';
+type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings' | 'check' | 'account';
 
 export default function App() {
   const [screen, setScreenState] = useState<Screen>('welcome');
@@ -22,15 +25,28 @@ export default function App() {
   const [prefs, setPrefsState] = useState<Prefs>({});
   const [coachFor, setCoachFor] = useState<{ item: TrackedJob; task: CoachTask } | null>(null);
 
-  // The profile and settings are kept on this device only, so returning applicants don't start over.
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  // Sign-in shows only when the server has accounts turned on (it needs a database when hosted).
+  const [accountsOn, setAccountsOn] = useState(false);
+  useEffect(() => {
+    fetch(`${API_URL}/api/health`).then((r) => r.json()).then((h) => setAccountsOn(!!h.accounts)).catch(() => {});
+  }, []);
+
+  // The profile and settings are kept on this device, so returning applicants don't start over.
+  // When signed in, they also come from the account, so changes made on another device show up here.
   useEffect(() => {
     AsyncStorage.multiGet(['profile.v1', 'prefs.v1']).then(([[, p], [, pr]]) => {
       if (p) setProfileState(JSON.parse(p));
       if (pr) setPrefsState(JSON.parse(pr));
     });
+    getAccount().then((a) => {
+      if (!a) return;
+      setAccountEmail(a.email);
+      pull().then((saved) => { if (saved) { setProfileState(saved.profile); setPrefsState(saved.prefs); } });
+    });
   }, []);
-  const setProfile = (p: Profile) => { setProfileState(p); AsyncStorage.setItem('profile.v1', JSON.stringify(p)); };
-  const setPrefs = (p: Prefs) => { setPrefsState(p); AsyncStorage.setItem('prefs.v1', JSON.stringify(p)); };
+  const setProfile = (p: Profile) => { setProfileState(p); AsyncStorage.setItem('profile.v1', JSON.stringify(p)).then(scheduleSync); };
+  const setPrefs = (p: Prefs) => { setPrefsState(p); AsyncStorage.setItem('prefs.v1', JSON.stringify(p)).then(scheduleSync); };
 
   return (
     <>
@@ -39,6 +55,8 @@ export default function App() {
           onStart={() => setScreen('import')}
           onTracker={() => setScreen('tracker')}
           onCheckJob={() => setScreen('check')}
+          onAccount={accountsOn ? () => setScreen('account') : undefined}
+          accountEmail={accountEmail}
           onSettings={() => setScreen('settings')}
           reduceMotion={prefs.reduce_motion}
         />
@@ -59,7 +77,15 @@ export default function App() {
           onDone={(p) => { setProfile(p); setScreen('matches'); }}
         />
       )}
-      {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => setScreen('chat')} onTracker={() => setScreen('tracker')} onCheckJob={() => setScreen('check')} />}
+      {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => setScreen('chat')} onTracker={() => setScreen('tracker')} onCheckJob={() => setScreen('check')} signedIn={!!accountEmail || !accountsOn} onAccount={() => setScreen('account')} />}
+      {screen === 'account' && (
+        <AccountScreen
+          email={accountEmail}
+          onBack={() => setScreenState(previous === 'account' ? 'welcome' : previous)}
+          onSignedIn={(email, data) => { setAccountEmail(email); setProfileState(data.profile); setPrefsState(data.prefs); setScreenState(previous === 'account' ? 'welcome' : previous); }}
+          onSignedOut={() => { setAccountEmail(null); setProfileState({}); setPrefsState({}); setScreenState('welcome'); }}
+        />
+      )}
       {screen === 'check' && (
         <CheckJobScreen
           profile={profile}

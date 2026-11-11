@@ -18,8 +18,9 @@ const STEPS = [
   { title: 'Track every application', text: 'Stay organized from first click to job offer.' },
 ];
 
-export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onSettings, reduceMotion }: {
-  onStart: () => void; onTracker: () => void; onCheckJob: () => void; onSettings: () => void; reduceMotion?: boolean;
+export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccount, accountEmail, onSettings, reduceMotion }: {
+  onStart: () => void; onTracker: () => void; onCheckJob: () => void; onAccount?: () => void; accountEmail: string | null;
+  onSettings: () => void; reduceMotion?: boolean;
 }) {
   return (
     <SafeAreaView style={styles.safe}>
@@ -59,6 +60,9 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onSettin
           <Pressable onPress={onTracker} accessibilityRole="button" accessibilityLabel="My applications" style={styles.link}>
             <Text style={styles.linkText}>My applications</Text>
           </Pressable>
+          {onAccount && <Pressable onPress={onAccount} accessibilityRole="button" accessibilityLabel={accountEmail ? `Your account, signed in as ${accountEmail}` : 'Sign in or create an account'} style={styles.link}>
+            <Text style={styles.linkText}>{accountEmail ? 'My account' : 'Sign in'}</Text>
+          </Pressable>}
           <Pressable onPress={onSettings} accessibilityRole="button" accessibilityLabel="Accessibility and language settings" style={styles.link}>
             <Text style={styles.linkText}>Accessibility and language</Text>
           </Pressable>

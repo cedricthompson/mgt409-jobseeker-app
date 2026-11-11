@@ -12,6 +12,7 @@ import { matchJobs } from "./agents/matcher.js";
 import { scorecard } from "./agents/scorecard.js";
 import { coach } from "./agents/coach.js";
 import { checkJob } from "./agents/jobreader.js";
+import { accountsEnabled, deleteMine, getMine, saveMine, signIn, signOut, signUp } from "./accounts.js";
 import { prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
 
 const PORT = process.env.PORT || 3001;
@@ -34,7 +35,8 @@ function send(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   });
   res.end(JSON.stringify(body));
 }
@@ -49,7 +51,7 @@ async function readJson(req) {
 }
 
 const routes = {
-  "GET /api/health": async () => ({ ok: true, sources: sourcesConfigured(), last: sourceStatus }),
+  "GET /api/health": async () => ({ ok: true, accounts: accountsEnabled(), sources: sourcesConfigured(), last: sourceStatus }),
   "GET /api/usage": async () => usage,
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
@@ -63,6 +65,13 @@ const routes = {
   "POST /api/scorecard": async (req) => scorecard(await readJson(req)),
   "POST /api/coach": async (req) => coach(await readJson(req)),
   "POST /api/check-job": async (req) => checkJob(await readJson(req)),
+  // Accounts (optional): saved profile, settings, and tracker on any device.
+  "POST /api/signup": async (req) => signUp(await readJson(req)),
+  "POST /api/login": async (req) => signIn(await readJson(req)),
+  "POST /api/logout": async (req) => signOut(req),
+  "GET /api/me": async (req) => getMine(req),
+  "PUT /api/me": async (req) => saveMine(req, await readJson(req)),
+  "DELETE /api/me": async (req) => deleteMine(req),
 };
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",

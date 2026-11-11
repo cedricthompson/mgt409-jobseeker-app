@@ -20,6 +20,8 @@ with predicted outcomes, and tracks every application.
 
 **Job sources:** USAJobs, Adzuna, Google Jobs through JSearch (listings posted on LinkedIn, Indeed, Glassdoor, ZipRecruiter, and company sites), and Remotive. LinkedIn and Indeed don't allow apps to read their pages directly, so for a link from those sites the app asks the applicant to paste the description.
 
+**Accounts (optional):** applicants can create a free account (email and password) so their profile, settings, and tracker follow them to any phone or computer. Without one, everything stays on the device. Passwords are hashed with scrypt, sign-in tokens are stored only as hashes and expire after 60 days, repeated wrong passwords lock that email for 15 minutes, signing out clears the device (safe on library computers), and applicants can delete their account and data. Accounts are saved in Postgres when `DATABASE_URL` is set (the live site uses a free [Neon](https://neon.tech) database); when you run the app locally without it, they are saved in `server/data/accounts.local.json`.
+
 The **application tracker** (Saved → Applied → Screening → Interviewing → Offer) is an app
 feature that the agents read from and write to.
 

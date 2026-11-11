@@ -10,8 +10,9 @@ type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps
 const FIT_LABEL = { strong: 'Strong match', good: 'Good match', stretch: 'Stretch' };
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
 
-export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob }: {
+export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob, signedIn, onAccount }: {
   profile: Profile; prefs: Prefs; onBack: () => void; onTracker: () => void; onCheckJob: () => void;
+  signedIn: boolean; onAccount: () => void;
 }) {
   const tracker = useTracker();
   const [step, setStep] = useState('Finding jobs near you…');
@@ -58,6 +59,11 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
           </Pressable>
         </View>
 
+        {!signedIn && (
+          <Pressable onPress={onAccount} style={styles.banner} accessibilityRole="button" accessibilityLabel="Create a free account to keep your profile and applications on any device">
+            <Text style={type.small}><Text style={{ fontWeight: '700', color: colors.blue }}>Save your progress: </Text>create a free account to see your profile and applications on any phone or computer ›</Text>
+          </Pressable>
+        )}
         <Pressable
           onPress={onCheckJob}
           style={({ pressed }) => [styles.checkBtn, pressed && { opacity: 0.85 }]}

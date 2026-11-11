@@ -1,7 +1,9 @@
-// Application tracker, stored only on the applicant's device (private by default; no account needed).
+// Application tracker, stored on the applicant's device (private by default; no account needed).
+// When the applicant is signed in, every change is also saved to their account (see account.ts).
 // Each item keeps the scorecard from when it was saved, so outcomes can later be compared with predictions.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
+import { scheduleSync } from './account';
 
 export const STAGES = ['Saved', 'Applied', 'Screening', 'Interviewing', 'Offer', 'Closed'] as const;
 export type Stage = (typeof STAGES)[number];
@@ -34,7 +36,7 @@ export function useTracker() {
 
   const save = useCallback((next: TrackedJob[]) => {
     setItems(next);
-    AsyncStorage.setItem(KEY, JSON.stringify(next));
+    AsyncStorage.setItem(KEY, JSON.stringify(next)).then(scheduleSync);
   }, []);
 
   const add = useCallback((id: string, job: TrackedJob['job'], score?: TrackedJob['score'], stage: Stage = 'Saved') => {
@@ -43,7 +45,7 @@ export function useTracker() {
       const now = today();
       const next = [{ id, job, score, stage, notes: '', savedAt: now, history: [{ stage, at: now }],
         ...(stage === 'Applied' && { appliedAt: now, followUp: addDays(7) }) }, ...cur];
-      AsyncStorage.setItem(KEY, JSON.stringify(next));
+      AsyncStorage.setItem(KEY, JSON.stringify(next)).then(scheduleSync);
       return next;
     });
   }, []);

@@ -23,3 +23,5 @@ services:
         sync: false
       - key: JSEARCH_API_KEY
         sync: false
+      - key: DATABASE_URL # Postgres for accounts (free Neon database); without it, accounts stay off
+        sync: false
