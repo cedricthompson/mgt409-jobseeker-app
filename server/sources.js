@@ -116,10 +116,10 @@ export async function jsearch(p) {
   });
   try {
     // JSearch is slower than the others (it searches Google live), so it gets more time.
-    const res = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}`, {
+   const res = await getJson(`https://jsearch.p.rapidapi.com/search-v2?${qs}`, {
       headers: { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" },
     }, 20000);
-    const data = res.data || [];
+  const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
     note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
     return data.slice(0, 12).map((j) => {
       const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";
