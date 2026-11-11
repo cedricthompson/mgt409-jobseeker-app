@@ -35,8 +35,14 @@ const CACHE_FILE = resolve(LOG_DIR, "llm-cache.json");
 const cache = existsSync(CACHE_FILE) ? JSON.parse(readFileSync(CACHE_FILE, "utf8")) : {};
 const cacheKey = (body) => createHash("sha256").update(JSON.stringify(body)).digest("hex");
 
-export async function chat(messages, { json = false, agent = "other", session = "anonymous", useCache = true } = {}) {
-  const body = { model: MODEL, messages, ...(json && { response_format: { type: "json_object" } }) };
+// `effort` ("low" | "medium" | "high") limits how long the model thinks before answering.
+// Hidden thinking was most of the Job Matcher's ~40 seconds, and ranking a short list doesn't need it.
+// If the model rejects the setting, the call is retried without it and the setting is skipped from then on.
+let effortSupported = true;
+
+export async function chat(messages, { json = false, agent = "other", session = "anonymous", useCache = true, effort } = {}) {
+  const body = { model: MODEL, messages, ...(json && { response_format: { type: "json_object" } }),
+    ...(effort && effortSupported && { reasoning_effort: effort }) };
   const key = cacheKey(body);
   const hit = useCache && cache[key];
   const hours = Number(process.env.CACHE_HOURS ?? 24); // read per call, so scripts can turn the cache off
@@ -54,6 +60,11 @@ export async function chat(messages, { json = false, agent = "other", session = 
   });
   if (!res.ok) {
     const detail = await res.text();
+    if (body.reasoning_effort && res.status === 400 && /reasoning/i.test(detail)) {
+      effortSupported = false;
+      console.warn(`Model doesn't accept reasoning_effort; continuing without it. ${detail.slice(0, 200)}`);
+      return chat(messages, { json, agent, session, useCache });
+    }
     if (detail.includes("content_filter")) throw Object.assign(new Error("I can't help with that request. Please rephrase it as a question about your job search."), { code: "content_filter", status: 400 });
     throw new Error(`Model call failed (${res.status}): ${detail}`);
   }

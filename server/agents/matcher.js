@@ -50,7 +50,7 @@ export async function matchJobs({ profile = {}, session, prefs }) {
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
       { role: "user", content: `Applicant: ${JSON.stringify({ ...jobFacts(profile), starting_out: isEntryLevel(profile) || undefined })}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
     ],
-    { json: true, agent: "matcher", session }
+    { json: true, agent: "matcher", session, effort: "low" }
   );
   const { matches = [] } = JSON.parse(text);
   return { considered: jobs.length, data: live.local.length ? "live" : "sample", matches: matches.filter((m) => byId[m.id]).map((m) => ({ ...m, job: byId[m.id] })) };
