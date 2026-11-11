@@ -8,6 +8,7 @@ import { voiceFor } from './SettingsScreen';
 import MicButton, { canDictate } from '../components/MicButton';
 import { colors, radius, space, type, themed } from '../theme';
 import { coachFor } from '../team';
+import Avatar from '../components/Avatar';
 
 type Msg = { role: 'user' | 'assistant'; content: string; why?: string; agent?: string };
 type ChatReply = { agent: 'intake' | 'gap'; reply: string; why?: string; profile: Profile; missing: string[]; done: boolean };
@@ -95,9 +96,7 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
             <View key={i} style={{ gap: 2 }}>
             {m.role === 'assistant' && c && (
               <View style={styles.speaker} accessibilityElementsHidden importantForAccessibility="no">
-                <View style={[styles.speakerDot, { backgroundColor: c.color }]}>
-                  <Text style={styles.speakerInitial}>{c.name[0]}</Text>
-                </View>
+                <Avatar coach={c.key} size={36} />
                 <Text style={styles.speakerName}>{c.name} <Text style={styles.speakerRole}>· {c.role}</Text></Text>
               </View>
             )}
@@ -177,8 +176,6 @@ const styles = themed(() => ({
   user: { backgroundColor: colors.blue, alignSelf: 'flex-end' },
   why: { ...type.small, fontStyle: 'italic' },
   speaker: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: 2 },
-  speakerDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  speakerInitial: { color: colors.onAccent, fontSize: 14, fontWeight: '800' },
   speakerName: { fontSize: 16, fontWeight: '700', color: colors.ink },
   speakerRole: { fontWeight: '400', color: colors.muted },
   listen: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },

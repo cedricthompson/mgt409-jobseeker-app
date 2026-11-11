@@ -1,6 +1,9 @@
-import { Image, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { colors, radius, space, type, themed } from '../theme';
-import { TEAM } from '../team';
+import { coachFor } from '../team';
+import Avatar from '../components/Avatar';
+import { APP_NAME, APP_TAGLINE } from '../brand';
+import Wordmark from '../components/Wordmark';
 import { PROMO_MINUTES } from '../components/Promo';
 
 // Photos of job seekers for the opening page. Each needs alt text for screen readers.
@@ -20,24 +23,27 @@ const EXAMPLES = [
 // Stories: written examples until real video testimonials are recorded.
 // To add a video later, record a 15-30 second clip with captions and add it here with the person's permission.
 const STORIES = [
-  { quote: "I didn't know how to get my job search started. Career Coach walked me through it one question at a time, and I applied to three jobs that first week.", who: 'Job seeker starting out' },
+  { quote: `I didn't know how to get my job search started. ${APP_NAME} walked me through it one question at a time, and I applied to three jobs that first week.`, who: 'Job seeker starting out' },
   { quote: "I have a lot of work experience and wasn't sure which direction to go. The coaches helped me narrow it down to the jobs that actually fit me.", who: 'Experienced worker changing direction' },
   { quote: "The Predictability Score told me which jobs to skip. I stopped wasting evenings on applications that were never going to call back.", who: 'Parent job hunting after work' },
 ];
 
+// How it works: one step per coach, shown as vertical cards with each coach's portrait.
 const STEPS = [
-  { coach: 'Maya', title: 'Share your background', text: 'Upload, photograph, paste, or speak your resume.' },
-  { coach: 'Theo', title: 'Find your hidden strengths', text: 'A few questions uncover skills that raise your pay.' },
-  { coach: 'Jordan', title: 'See real jobs near you', text: 'Openings from Indeed, LinkedIn, USAJOBS, and more.' },
-  { coach: 'Priya', title: 'Know where to apply', text: 'A 0 to 100 Predictability Score and your odds of an interview, an offer, and still being there a year later.' },
-  { coach: 'Priya', title: 'Check any job you find', text: 'Paste a link or description from Indeed, LinkedIn, or any site to see your chances.' },
-  { coach: 'Marcus', title: 'Apply with confidence', text: 'A tailored resume, cover letter, and follow-ups.' },
+  { coach: 'intake', title: 'Share your background', text: 'Upload, photograph, paste, or speak your resume.' },
+  { coach: 'gap', title: 'Find your hidden strengths', text: 'A few smart questions uncover skills that raise your pay.' },
+  { coach: 'matcher', title: 'See real jobs near you', text: 'Openings from Indeed, LinkedIn, USAJOBS, and more.' },
+  { coach: 'scorecard', title: 'Predict your chances', text: 'A 0 to 100 Predictability Score with your odds of an interview, an offer, and lasting a year.' },
+  { coach: 'coach', title: 'Apply with confidence', text: 'A tailored resume, cover letter, and follow-ups for the jobs worth your time.' },
 ];
 
 export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccount, accountEmail, onSettings }: {
   onStart: () => void; onTracker: () => void; onCheckJob: () => void; onAccount?: () => void; accountEmail: string | null;
   onSettings: () => void; reduceMotion?: boolean;
 }) {
+  // Step cards: five across on wide screens, three then two on tablets, one per row on phones.
+  const { width } = useWindowDimensions();
+  const stepWidth = width >= 1100 ? '18.4%' : width >= 640 ? '31%' : '100%';
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.page}>
@@ -46,7 +52,7 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
           <View style={styles.brand}>
             <Image source={require('../assets/logo-icon.png')} style={styles.brandIcon} resizeMode="contain"
               accessibilityLabel="Chart Academy" alt="Chart Academy" />
-            <Text style={styles.brandText}>Career Coach</Text>
+            <Wordmark size={30} />
           </View>
           <View style={styles.topLinks}>
             <Pressable onPress={onSettings} accessibilityRole="button" accessibilityLabel="Appearance, accessibility, and language settings" style={styles.topLink}>
@@ -63,14 +69,14 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
 
         {/* Hero */}
         <View style={styles.section}>
-          <Text style={styles.eyebrow}>FREE AI CAREER COACH FROM CHART ACADEMY</Text>
+          <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()} · FREE FROM CHART ACADEMY</Text>
           <Text style={styles.hero} role="heading" aria-level={1}>
-            Know which jobs are <Text style={{ color: colors.red }}>worth your time.</Text>
+            Let us help you <Text style={{ color: colors.red }}>predict your future.</Text>
           </Text>
           <Text style={styles.lead}>
-            Every job we find gets a <Text style={styles.bold}>Predictability Score</Text> from 0 to 100 that
-            estimates your chances of an interview and an offer. Spend your time on the jobs you're likely to
-            land, and skip the ones that won't call back.
+            <Text style={styles.bold}>Know which jobs are worth your time.</Text> Every job we find gets a{' '}
+            <Text style={styles.bold}>Predictability Score</Text> from 0 to 100 that estimates your chances of an
+            interview and an offer. Spend your time on the jobs you're likely to land, and skip the ones that won't call back.
           </Text>
           <View style={styles.ctaRow}>
             <Pressable
@@ -124,37 +130,25 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
           </View>
         )}
 
-        {/* Meet the team */}
+        {/* How it works: one vertical card per coach */}
         <View style={styles.section}>
-          <Text style={styles.eyebrow}>MEET YOUR COACHING TEAM</Text>
-          <Text style={styles.h2} role="heading" aria-level={2}>Five coaches, one goal: your next job</Text>
-          <Text style={type.small}>Your coaches are AI assistants. Each one handles one part of your search and hands off to the next.</Text>
-          <View style={styles.teamGrid}>
-            {TEAM.map((c) => (
-              <View key={c.key} style={styles.teamCard}>
-                <View style={[styles.avatar, { backgroundColor: c.color }]} accessibilityElementsHidden importantForAccessibility="no">
-                  <Text style={styles.avatarText}>{c.name[0]}</Text>
+          <Text style={styles.eyebrow}>HOW IT WORKS</Text>
+          <Text style={styles.h2} role="heading" aria-level={2}>Five coaches. One goal: your next job.</Text>
+          <Text style={type.small}>Your coaches are AI assistants. Each one handles one step and hands you to the next.</Text>
+          <View style={styles.stepGrid}>
+            {STEPS.map((s, i) => {
+              const c = coachFor(s.coach)!;
+              return (
+                <View key={s.coach} style={[styles.stepCard, { width: stepWidth }]}>
+                  <Text style={styles.stepNum}>Step {i + 1}</Text>
+                  <Avatar coach={s.coach} size={88} />
+                  <Text style={styles.stepTitle} role="heading" aria-level={3}>{s.title}</Text>
+                  <Text style={styles.with}>with {c.name}, {c.role}</Text>
+                  <Text style={[type.small, { textAlign: 'center' }]}>{s.text}</Text>
                 </View>
-                <Text style={styles.cardTitle}>{c.name}</Text>
-                <Text style={styles.role}>{c.role}</Text>
-                <Text style={type.small}>{c.line}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
-        </View>
-
-        {/* How it works */}
-        <View style={styles.steps}>
-          <Text style={styles.h2} role="heading" aria-level={2}>How it works</Text>
-          {STEPS.map((s, i) => (
-            <View key={s.title} style={styles.step}>
-              <Text style={styles.stepNum} accessibilityElementsHidden importantForAccessibility="no">{i + 1}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.stepTitle} role="heading" aria-level={3}>{s.title}</Text>
-                <Text style={type.small}>{s.text} <Text style={styles.with}>With {s.coach}.</Text></Text>
-              </View>
-            </View>
-          ))}
         </View>
 
         {/* Stories */}
@@ -175,7 +169,7 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onAccoun
 
         {/* Closing call to action */}
         <View style={styles.closing}>
-          <Text style={styles.closingTitle} role="heading" aria-level={2}>Ready to find out where you'll stand out?</Text>
+          <Text style={styles.closingTitle} role="heading" aria-level={2}>Ready to see what your future holds?</Text>
           <Pressable
             style={({ pressed }) => [styles.ctaLight, pressed && { opacity: 0.85 }]}
             onPress={onStart} accessibilityRole="button" accessibilityLabel="Get started"
@@ -192,11 +186,10 @@ const styles = themed(() => {
   const card = { backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: space.md };
   return {
   safe: { flex: 1, backgroundColor: colors.bg },
-  page: { padding: space.lg, gap: space.xl, maxWidth: 960, width: '100%', alignSelf: 'center' },
+  page: { padding: space.lg, gap: space.xl, maxWidth: 1120, width: '100%', alignSelf: 'center' },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   brandIcon: { width: 44, height: 44 },
-  brandText: { fontSize: 20, fontWeight: '800', color: colors.ink },
   topLinks: { flexDirection: 'row', gap: space.sm },
   textLink: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   textLinkText: { fontSize: 18, fontWeight: '700', color: colors.blue, textDecorationLine: 'underline' },
@@ -224,19 +217,11 @@ const styles = themed(() => {
   photoGrid: { flexDirection: 'row', gap: space.sm },
   photo: { flex: 1, height: 190, borderRadius: 16 },
   h2: { fontSize: 30, lineHeight: 36, fontWeight: '800', color: colors.ink, letterSpacing: -0.3 },
-  teamGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
-  teamCard: { ...card, flexGrow: 1, flexBasis: 260, gap: 6 },
-  avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  avatarText: { color: colors.onAccent, fontSize: 24, fontWeight: '800' },
-  role: { fontSize: 16, fontWeight: '700', color: colors.blue },
-  steps: { gap: space.md, backgroundColor: colors.tint, borderRadius: 24, padding: space.lg },
-  step: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
-  stepNum: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: colors.red, color: colors.onAccent,
-    textAlign: 'center', lineHeight: 36, fontSize: 18, fontWeight: '700', overflow: 'hidden',
-  },
-  stepTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  with: { fontWeight: '700', color: colors.blue },
+  stepGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, justifyContent: 'center' },
+  stepCard: { ...card, alignItems: 'center', gap: space.sm, paddingVertical: space.lg },
+  stepNum: { fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.red, textTransform: 'uppercase' },
+  stepTitle: { fontSize: 19, lineHeight: 24, fontWeight: '800', color: colors.ink, textAlign: 'center' },
+  with: { fontSize: 15, fontWeight: '700', color: colors.blue, textAlign: 'center' },
   storyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   story: { ...card, flexGrow: 1, flexBasis: 260, gap: space.sm },
   quoteMark: { fontSize: 48, lineHeight: 48, fontWeight: '800', color: colors.red, height: 32 },
