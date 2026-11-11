@@ -1,7 +1,7 @@
 import * as Speech from 'expo-speech';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
 import { Prefs } from '../api';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
 
 // Languages common among job seekers in DC and NYC. The coach replies in the chosen language;
 // read-aloud uses the matching voice. App buttons and labels stay in English for now.
@@ -26,6 +26,16 @@ const TOGGLES: { key: 'plain_language' | 'one_step' | 'read_aloud' | 'reduce_mot
   { key: 'reduce_motion', label: 'Reduce motion', help: 'Turns off moving text and animations.' },
 ];
 
+// Look and text size. Changes apply right away to every screen (see applyTheme in theme.ts).
+type Choice = { label: string; current: (p: Prefs) => string | number; patch: (v: string | number) => Partial<Prefs>;
+  options: { label: string; value: string | number }[] };
+const CHOICES: Choice[] = [
+  { label: 'Appearance', current: (p) => p.look ?? 'light', patch: (v) => ({ look: v as Prefs['look'] }),
+    options: [{ label: 'Light', value: 'light' }, { label: 'Dark', value: 'dark' }, { label: 'High contrast', value: 'contrast' }] },
+  { label: 'Text size', current: (p) => p.text_scale ?? 1, patch: (v) => ({ text_scale: Number(v) }),
+    options: [{ label: 'Standard', value: 1 }, { label: 'Large', value: 1.2 }, { label: 'Extra large', value: 1.4 }] },
+];
+
 export default function SettingsScreen({ prefs, onChange, onBack }: { prefs: Prefs; onChange: (p: Prefs) => void; onBack: () => void }) {
   const set = (patch: Partial<Prefs>) => onChange({ ...prefs, ...patch });
 
@@ -35,8 +45,32 @@ export default function SettingsScreen({ prefs, onChange, onBack }: { prefs: Pre
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
-        <Text style={styles.title} role="heading" aria-level={1}>Accessibility and language</Text>
+        <Text style={styles.title} role="heading" aria-level={1}>Appearance, accessibility, and language</Text>
         <Text style={type.small}>Saved on this device. Change them any time.</Text>
+
+        {CHOICES.map((group) => (
+          <View key={group.label} style={{ gap: space.sm }}>
+            <Text style={styles.label} role="heading" aria-level={2}>{group.label}</Text>
+            <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel={group.label}>
+              {group.options.map((o) => {
+                const selected = group.current(prefs) === o.value;
+                return (
+                  <Pressable
+                    key={o.label}
+                    onPress={() => set(group.patch(o.value))}
+                    style={[styles.chip, selected && styles.chipOn]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected }}
+                    aria-checked={selected}
+                    accessibilityLabel={o.label}
+                  >
+                    <Text style={[styles.chipText, selected && { color: colors.onAccent }]}>{o.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ))}
 
         {TOGGLES.map(({ key, label, help }) => (
           <View key={key} style={styles.row}>
@@ -79,7 +113,7 @@ export default function SettingsScreen({ prefs, onChange, onBack }: { prefs: Pre
                 aria-checked={selected}
                 accessibilityLabel={l.name}
               >
-                <Text style={[styles.chipText, selected && { color: colors.white }]}>{l.native}</Text>
+                <Text style={[styles.chipText, selected && { color: colors.onAccent }]}>{l.native}</Text>
               </Pressable>
             );
           })}
@@ -97,8 +131,8 @@ export default function SettingsScreen({ prefs, onChange, onBack }: { prefs: Pre
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: space.lg, gap: space.md, maxWidth: 820, width: '100%', alignSelf: 'center' },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
@@ -112,4 +146,4 @@ const styles = StyleSheet.create({
   secondary: { minHeight: 48, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { fontSize: 17, fontWeight: '700', color: colors.blue },
   note: { backgroundColor: colors.tint, padding: space.md, borderRadius: radius, gap: 4 },
-});
+}));

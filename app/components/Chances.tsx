@@ -1,8 +1,8 @@
 // The app's predictions, shared by the matches list and "Check any job."
 // ChancesHeadline: the three odds every applicant asks about, shown up front on every job.
 // ScoreDetails: the full scorecard (how you fit, all six odds, the reason, and the best next step).
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, space, type } from '../theme';
+import { Text, View } from 'react-native';
+import { colors, radius, space, type, themed } from '../theme';
 
 export type Part = { score: number | null; note: string };
 export type Odds = 'interview' | 'hire' | 'promotion_1yr' | 'retain_12' | 'retain_18' | 'retain_24';
@@ -75,11 +75,11 @@ export function ScoreDetails({ card }: { card: Card }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => ({
   headline: { backgroundColor: colors.tint, borderRadius: radius, padding: space.sm, gap: 4 },
   headlineTitle: { fontSize: 15, fontWeight: '700', color: colors.red, textTransform: 'uppercase', letterSpacing: 0.5 },
   tiles: { flexDirection: 'row', gap: space.sm },
-  tile: { flex: 1, alignItems: 'center', backgroundColor: colors.white, borderRadius: radius, paddingVertical: space.sm, paddingHorizontal: 4 },
+  tile: { flex: 1, alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius, paddingVertical: space.sm, paddingHorizontal: 4 },
   tileNum: { fontSize: 26, fontWeight: '800', color: colors.blue },
   tileLabel: { fontSize: 15, color: colors.ink, textAlign: 'center' },
   sub: { ...type.heading, fontSize: 18 },
@@ -91,4 +91,4 @@ const styles = StyleSheet.create({
   note: { ...type.small, fontSize: 15 },
   tip: { backgroundColor: colors.tint, borderLeftWidth: 4, borderLeftColor: colors.red, padding: space.md, borderRadius: radius, gap: 4 },
   tipTitle: { fontSize: 16, fontWeight: '700', color: colors.red },
-});
+}));

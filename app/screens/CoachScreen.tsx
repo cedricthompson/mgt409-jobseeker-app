@@ -1,9 +1,9 @@
 import * as Clipboard from 'expo-clipboard';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { post, Prefs, Profile } from '../api';
 import { TrackedJob } from '../tracker';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
 
 export type CoachTask = 'resume' | 'cover_letter' | 'follow_up' | 'interview_prep';
 export const COACH_TASKS: { task: CoachTask; label: string }[] = [
@@ -78,18 +78,18 @@ export default function CoachScreen({ task, item, profile, prefs, onBack }: {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: space.lg, gap: space.md, maxWidth: 820, width: '100%', alignSelf: 'center' },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
   title: { ...type.title, color: colors.red },
   row: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
   error: { fontSize: 18, color: colors.red },
-  doc: { borderWidth: 2, borderColor: colors.line, borderRadius: radius, padding: space.lg, backgroundColor: colors.white },
+  doc: { borderWidth: 2, borderColor: colors.line, borderRadius: radius, padding: space.lg, backgroundColor: colors.surface },
   docText: { fontSize: 17, lineHeight: 26, color: colors.ink },
   primary: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: colors.white, fontSize: 18, fontWeight: '700' },
+  primaryText: { color: colors.onAccent, fontSize: 18, fontWeight: '700' },
   tips: { backgroundColor: colors.tint, borderLeftWidth: 4, borderLeftColor: colors.red, padding: space.md, borderRadius: radius, gap: 6 },
   tipsTitle: { fontSize: 18, fontWeight: '700', color: colors.red },
-});
+}));

@@ -1,9 +1,9 @@
 // "Check any job": the applicant pastes a link to a job they found anywhere, or the job description,
 // and sees their predicted chances for that exact job (interview, hire, promotion, still there later).
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 import { post, Prefs, Profile } from '../api';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
 import { useTracker } from '../tracker';
 import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
 import SearchElsewhere from '../components/SearchElsewhere';
@@ -145,25 +145,25 @@ export default function CheckJobScreen({ profile, prefs, onBack, onTracker, onBu
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: space.lg, gap: space.md, maxWidth: 820, width: '100%', alignSelf: 'center' },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
   title: { ...type.title, color: colors.red },
   label: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  linkInput: { minHeight: 52, borderWidth: 2, borderColor: '#333333', borderRadius: 8, paddingHorizontal: 12, fontSize: 18, color: colors.ink },
-  textInput: { minHeight: 160, borderWidth: 2, borderColor: '#333333', borderRadius: 8, padding: 12, fontSize: 18, color: colors.ink, textAlignVertical: 'top' },
+  linkInput: { minHeight: 52, borderWidth: 2, borderColor: colors.muted, borderRadius: 8, paddingHorizontal: 12, fontSize: 18, color: colors.ink },
+  textInput: { minHeight: 160, borderWidth: 2, borderColor: colors.muted, borderRadius: 8, padding: 12, fontSize: 18, color: colors.ink, textAlignVertical: 'top' },
   button: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
-  disabled: { backgroundColor: '#6B7A99' },
-  buttonText: { color: colors.white, fontSize: 18, fontWeight: '700' },
+  disabled: { backgroundColor: colors.muted },
+  buttonText: { color: colors.onAccent, fontSize: 18, fontWeight: '700' },
   notice: { backgroundColor: colors.tint, borderRadius: radius, padding: space.md, gap: space.md },
   row: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
   error: { fontSize: 18, color: colors.red },
   card: { borderWidth: 2, borderColor: colors.line, borderRadius: radius, padding: space.md, gap: space.sm },
-  now: { alignSelf: 'flex-start', backgroundColor: colors.red, color: colors.white, fontSize: 14, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
+  now: { alignSelf: 'flex-start', backgroundColor: colors.red, color: colors.onAccent, fontSize: 14, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   jobTitle: { fontSize: 22, fontWeight: '700', color: colors.ink },
   actions: { flexDirection: 'row', gap: space.sm },
   saveBtn: { minHeight: 52, minWidth: 100, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
   saveText: { fontSize: 18, fontWeight: '700', color: colors.blue },
-});
+}));

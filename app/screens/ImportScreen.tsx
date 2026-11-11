@@ -1,11 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, TextInput, View,
+  ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, Switch, Text, TextInput, View,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { colors } from '../theme';
+import { colors, themed } from '../theme';
 import { API_URL, session, Prefs, Profile } from '../api';
 import MicButton from '../components/MicButton';
 import { voiceFor } from './SettingsScreen';
@@ -98,7 +98,7 @@ export default function ImportScreen({ prefs, onBack, onContinue }: {
           value={resumeText}
           onChangeText={setResumeText}
           placeholder="Paste or speak your resume here"
-          placeholderTextColor="#595959"
+          placeholderTextColor={colors.muted}
           accessibilityLabel="Resume text"
           accessibilityHint="Paste or dictate your resume or LinkedIn profile"
         />
@@ -163,24 +163,24 @@ export default function ImportScreen({ prefs, onBack, onContinue }: {
 }
 
 // High-contrast colors (WCAG AA or better) and 48pt minimum touch targets.
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FFFFFF' },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: 20, gap: 16, maxWidth: 720, width: '100%', alignSelf: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: '#111111' },
-  subtitle: { fontSize: 20, fontWeight: '700', color: '#111111' },
-  body: { fontSize: 18, lineHeight: 26, color: '#222222' },
+  title: { fontSize: 28, fontWeight: '700', color: colors.ink },
+  subtitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
+  body: { fontSize: 18, lineHeight: 26, color: colors.ink },
   input: {
-    minHeight: 180, borderWidth: 2, borderColor: '#333333', borderRadius: 8,
-    padding: 12, fontSize: 18, color: '#111111', textAlignVertical: 'top',
+    minHeight: 180, borderWidth: 2, borderColor: colors.muted, borderRadius: 8,
+    padding: 12, fontSize: 18, color: colors.ink, textAlignVertical: 'top',
   },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 },
   button: { backgroundColor: colors.blue, minHeight: 52, borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  buttonDisabled: { backgroundColor: '#6B7A99' },
+  buttonDisabled: { backgroundColor: colors.muted },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  buttonText: { color: colors.onAccent, fontSize: 18, fontWeight: '700' },
   buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   secondaryButton: {
-    minHeight: 52, borderRadius: 8, borderWidth: 2, borderColor: colors.blue, backgroundColor: '#FFFFFF',
+    minHeight: 52, borderRadius: 8, borderWidth: 2, borderColor: colors.blue, backgroundColor: colors.bg,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, flexGrow: 1,
   },
   secondaryButtonText: { color: colors.blue, fontSize: 18, fontWeight: '700' },
@@ -188,4 +188,4 @@ const styles = StyleSheet.create({
   error: { fontSize: 18, color: colors.red },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
-});
+}));

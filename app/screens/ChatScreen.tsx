@@ -1,12 +1,13 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View,
 } from 'react-native';
 import * as Speech from 'expo-speech';
 import { post, Prefs, Profile } from '../api';
 import { voiceFor } from './SettingsScreen';
 import MicButton, { canDictate } from '../components/MicButton';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
+import { coachFor } from '../team';
 
 type Msg = { role: 'user' | 'assistant'; content: string; why?: string; agent?: string };
 type ChatReply = { agent: 'intake' | 'gap'; reply: string; why?: string; profile: Profile; missing: string[]; done: boolean };
@@ -87,14 +88,25 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
           contentContainerStyle={styles.thread}
           onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
         >
-          {messages.map((m, i) => (
+          {messages.map((m, i) => {
+            const c = m.role === 'assistant' ? coachFor(m.agent) : undefined;
+            const speaker = m.role === 'user' ? 'You' : c ? c.name : 'Coach';
+            return (
             <View key={i} style={{ gap: 2 }}>
+            {m.role === 'assistant' && c && (
+              <View style={styles.speaker} accessibilityElementsHidden importantForAccessibility="no">
+                <View style={[styles.speakerDot, { backgroundColor: c.color }]}>
+                  <Text style={styles.speakerInitial}>{c.name[0]}</Text>
+                </View>
+                <Text style={styles.speakerName}>{c.name} <Text style={styles.speakerRole}>· {c.role}</Text></Text>
+              </View>
+            )}
             <View
               style={[styles.bubble, m.role === 'user' ? styles.user : styles.coach]}
               accessible
-              accessibilityLabel={`${m.role === 'user' ? 'You said' : 'Coach said'}: ${m.content}${m.why ? `. Why this matters: ${m.why}` : ''}`}
+              accessibilityLabel={`${speaker} said: ${m.content}${m.why ? `. Why this matters: ${m.why}` : ''}`}
             >
-              <Text style={[type.body, m.role === 'user' && { color: colors.white }]}>{m.content}</Text>
+              <Text style={[type.body, m.role === 'user' && { color: colors.onAccent }]}>{m.content}</Text>
               {m.why ? <Text style={styles.why}>Why this matters: {m.why}</Text> : null}
             </View>
             {m.role === 'assistant' && (
@@ -103,7 +115,8 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
               </Pressable>
             )}
             </View>
-          ))}
+            );
+          })}
           <View aria-live="polite">
             {loading && <ActivityIndicator color={colors.blue} accessibilityLabel="Coach is thinking" />}
             {error ? <Text style={styles.error} role="alert">{error}</Text> : null}
@@ -152,8 +165,8 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: space.lg, paddingTop: space.md, maxWidth: 820, width: '100%', alignSelf: 'center' },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
@@ -163,11 +176,16 @@ const styles = StyleSheet.create({
   coach: { backgroundColor: colors.tint, alignSelf: 'flex-start' },
   user: { backgroundColor: colors.blue, alignSelf: 'flex-end' },
   why: { ...type.small, fontStyle: 'italic' },
+  speaker: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: 2 },
+  speakerDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  speakerInitial: { color: colors.onAccent, fontSize: 14, fontWeight: '800' },
+  speakerName: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  speakerRole: { fontWeight: '400', color: colors.muted },
   listen: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   listenText: { fontSize: 16, fontWeight: '600', color: colors.blue },
   error: { fontSize: 18, color: colors.red },
   cta: { backgroundColor: colors.red, minHeight: 56, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
-  ctaText: { color: colors.white, fontSize: 20, fontWeight: '700' },
+  ctaText: { color: colors.onAccent, fontSize: 20, fontWeight: '700' },
   composer: {
     flexDirection: 'row', gap: space.sm, padding: space.md, borderTopWidth: 1, borderColor: colors.line,
     maxWidth: 820, width: '100%', alignSelf: 'center',
@@ -177,5 +195,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md, paddingVertical: 12, fontSize: 18, color: colors.ink,
   },
   send: { backgroundColor: colors.blue, minHeight: 52, minWidth: 80, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
-  sendText: { color: colors.white, fontSize: 18, fontWeight: '700' },
-});
+  sendText: { color: colors.onAccent, fontSize: 18, fontWeight: '700' },
+}));

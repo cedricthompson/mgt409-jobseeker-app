@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { post, Prefs, Profile } from '../api';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
 import { useTracker } from '../tracker';
 import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
 import SearchElsewhere from '../components/SearchElsewhere';
@@ -171,8 +171,8 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: space.lg, gap: space.md, maxWidth: 820, width: '100%', alignSelf: 'center' },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   score: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
   scoreNum: { fontSize: 24, fontWeight: '800', color: colors.blue },
   scoreOf: { fontSize: 12, color: colors.muted, marginTop: -4 },
-  now: { alignSelf: 'flex-start', backgroundColor: colors.red, color: colors.white, fontSize: 14, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
+  now: { alignSelf: 'flex-start', backgroundColor: colors.red, color: colors.onAccent, fontSize: 14, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   jobTitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
   fit: { fontSize: 16, fontWeight: '700', color: colors.blue },
   toggle: { minHeight: 48, justifyContent: 'center' },
@@ -195,8 +195,8 @@ const styles = StyleSheet.create({
   saveBtn: { minHeight: 52, minWidth: 100, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
   saveText: { fontSize: 18, fontWeight: '700', color: colors.blue },
   apply: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
-  applyText: { color: colors.white, fontSize: 18, fontWeight: '700' },
+  applyText: { color: colors.onAccent, fontSize: 18, fontWeight: '700' },
   checkBtn: { minHeight: 52, borderRadius: radius, borderWidth: 2, borderColor: colors.red, justifyContent: 'center', paddingHorizontal: space.md },
   checkText: { fontSize: 18, fontWeight: '700', color: colors.red },
   credit: { ...type.small, color: colors.blue, textDecorationLine: 'underline', textAlign: 'center', paddingVertical: space.md },
-});
+}));

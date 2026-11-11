@@ -1,9 +1,9 @@
 // Buttons that open Indeed's and LinkedIn's own job search, filled in with the applicant's target job and city.
 // Neither site lets outside apps search or read its listings, so the applicant browses there, then pastes a job
 // into "Check any job" to see their chances. (Many of their listings also arrive through Google Jobs.)
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { Profile } from '../api';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
 
 export function searchTerms(profile: Profile) {
   const role = (profile.target_roles as string[] | undefined)?.[0] || (profile.experience as { title?: string }[] | undefined)?.[0]?.title || '';
@@ -33,9 +33,9 @@ export default function SearchElsewhere({ profile, note }: { profile: Profile; n
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => ({
   wrap: { gap: space.sm },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   btn: { flexGrow: 1, minHeight: 52, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
   btnText: { fontSize: 18, fontWeight: '700', color: colors.blue },
-});
+}));

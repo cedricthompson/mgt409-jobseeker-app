@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { AccessibilityInfo, Animated, Text, View } from 'react-native';
+import { colors, themed } from '../theme';
 
 // Promo lines that fade in one after another on the welcome page.
 export const PROMO_MINUTES = 10;
@@ -51,7 +51,7 @@ export default function Promo({ reduceMotion: forced = false }: { reduceMotion?:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => ({
   box: { minHeight: 84, justifyContent: 'center', paddingHorizontal: 8, gap: 6 },
   text: { fontSize: 22, lineHeight: 30, fontWeight: '600', color: colors.blue, textAlign: 'center' },
-});
+}));

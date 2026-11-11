@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Prefs, Profile } from './api';
+import { applyTheme, isDark } from './theme';
 import WelcomeScreen from './screens/WelcomeScreen';
 import ImportScreen from './screens/ImportScreen';
 import ChatScreen from './screens/ChatScreen';
@@ -37,19 +38,25 @@ export default function App() {
   useEffect(() => {
     AsyncStorage.multiGet(['profile.v1', 'prefs.v1']).then(([[, p], [, pr]]) => {
       if (p) setProfileState(JSON.parse(p));
-      if (pr) setPrefsState(JSON.parse(pr));
+      if (pr) setPrefs(JSON.parse(pr), false);
     });
     getAccount().then((a) => {
       if (!a) return;
       setAccountEmail(a.email);
-      pull().then((saved) => { if (saved) { setProfileState(saved.profile); setPrefsState(saved.prefs); } });
+      pull().then((saved) => { if (saved) { setProfileState(saved.profile); setPrefs(saved.prefs, false); } });
     });
   }, []);
   const setProfile = (p: Profile) => { setProfileState(p); AsyncStorage.setItem('profile.v1', JSON.stringify(p)).then(scheduleSync); };
-  const setPrefs = (p: Prefs) => { setPrefsState(p); AsyncStorage.setItem('prefs.v1', JSON.stringify(p)).then(scheduleSync); };
+  // Look and text size are applied before the next render; the key below rebuilds every screen with them.
+  const setPrefs = (p: Prefs, save = true) => {
+    applyTheme(p.look, p.text_scale);
+    setPrefsState(p);
+    if (save) AsyncStorage.setItem('prefs.v1', JSON.stringify(p)).then(scheduleSync);
+  };
+  const themeKey = `${prefs.look ?? 'light'}-${prefs.text_scale ?? 1}`;
 
   return (
-    <>
+    <Fragment key={themeKey}>
       {screen === 'welcome' && (
         <WelcomeScreen
           onStart={() => setScreen('import')}
@@ -104,7 +111,7 @@ export default function App() {
       {screen === 'coach' && coachFor && (
         <CoachScreen task={coachFor.task} item={coachFor.item} profile={profile} prefs={prefs} onBack={() => setScreenState('tracker')} />
       )}
-      <StatusBar style="dark" />
-    </>
+      <StatusBar style={isDark() ? 'light' : 'dark'} />
+    </Fragment>
   );
 }

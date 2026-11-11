@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 import { isDue, Outcome, Stage, STAGES, TrackedJob, useTracker } from '../tracker';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
 import { COACH_TASKS, CoachTask } from './CoachScreen';
 
 const OUTCOMES: Outcome[] = ['Accepted', 'Rejected', 'Withdrew', 'No response'];
@@ -16,7 +16,7 @@ function Chip({ label, selected, onPress }: { label: string; selected?: boolean;
       accessibilityState={{ selected }}
       accessibilityLabel={label}
     >
-      <Text style={[styles.chipText, selected && { color: colors.white }]}>{label}</Text>
+      <Text style={[styles.chipText, selected && { color: colors.onAccent }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -129,8 +129,8 @@ export default function TrackerScreen({ onBack, onCoach }: { onBack: () => void;
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: space.lg, gap: space.md, maxWidth: 820, width: '100%', alignSelf: 'center' },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
@@ -140,11 +140,11 @@ const styles = StyleSheet.create({
   jobTitle: { fontSize: 19, fontWeight: '700', color: colors.ink },
   follow: { fontSize: 16, fontWeight: '700', color: colors.blue },
   primary: { backgroundColor: colors.blue, minHeight: 48, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { color: colors.white, fontSize: 17, fontWeight: '700' },
+  primaryText: { color: colors.onAccent, fontSize: 17, fontWeight: '700' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   chip: { minHeight: 48, paddingHorizontal: space.md, borderRadius: 24, borderWidth: 2, borderColor: colors.blue, justifyContent: 'center' },
   chipOn: { backgroundColor: colors.blue },
   chipText: { fontSize: 16, fontWeight: '600', color: colors.blue },
   label: { fontSize: 16, fontWeight: '700', color: colors.ink },
   notes: { minHeight: 90, borderWidth: 2, borderColor: colors.ink, borderRadius: radius, padding: space.sm, fontSize: 17, color: colors.ink, textAlignVertical: 'top' },
-});
+}));

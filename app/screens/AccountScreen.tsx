@@ -1,9 +1,9 @@
 // Sign in or create an account, so the profile, settings, and tracker follow the applicant to any device.
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 import { Prefs, Profile } from '../api';
 import { deleteAccount, signIn, signOut, signUp } from '../account';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, type, themed } from '../theme';
 
 type Loaded = { profile: Profile; prefs: Prefs };
 
@@ -84,7 +84,7 @@ export default function AccountScreen({ email, onBack, onSignedIn, onSignedOut }
               {(['create', 'signin'] as const).map((m) => (
                 <Pressable key={m} onPress={() => { setMode(m); setError(''); }} style={[styles.tab, mode === m && styles.tabOn]}
                   accessibilityRole="tab" accessibilityState={{ selected: mode === m }}>
-                  <Text style={[styles.tabText, mode === m && { color: colors.white }]}>{m === 'create' ? 'Create account' : 'Sign in'}</Text>
+                  <Text style={[styles.tabText, mode === m && { color: colors.onAccent }]}>{m === 'create' ? 'Create account' : 'Sign in'}</Text>
                 </Pressable>
               ))}
             </View>
@@ -124,19 +124,19 @@ export default function AccountScreen({ email, onBack, onSignedIn, onSignedOut }
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.white },
+const styles = themed(() => ({
+  safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: space.lg, gap: space.md, maxWidth: 560, width: '100%', alignSelf: 'center' },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
   title: { ...type.title, color: colors.red },
   label: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  input: { minHeight: 52, borderWidth: 2, borderColor: '#333333', borderRadius: 8, paddingHorizontal: 12, fontSize: 18, color: colors.ink },
+  input: { minHeight: 52, borderWidth: 2, borderColor: colors.muted, borderRadius: 8, paddingHorizontal: 12, fontSize: 18, color: colors.ink },
   row: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
   showBtn: { minHeight: 52, minWidth: 72, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
   button: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
-  disabled: { backgroundColor: '#6B7A99' },
-  buttonText: { color: colors.white, fontSize: 18, fontWeight: '700' },
+  disabled: { backgroundColor: colors.muted },
+  buttonText: { color: colors.onAccent, fontSize: 18, fontWeight: '700' },
   secondary: { minHeight: 52, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
   secondaryText: { fontSize: 18, fontWeight: '700', color: colors.blue },
   tabs: { flexDirection: 'row', borderWidth: 2, borderColor: colors.blue, borderRadius: radius, overflow: 'hidden' },
@@ -145,4 +145,4 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 18, fontWeight: '700', color: colors.blue },
   danger: { borderTopWidth: 2, borderTopColor: colors.line, paddingTop: space.md, gap: space.sm, marginTop: space.lg },
   error: { fontSize: 18, color: colors.red },
-});
+}));
