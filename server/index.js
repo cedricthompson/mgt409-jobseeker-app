@@ -88,7 +88,30 @@ function serveWeb(req, res) {
   let file = join(WEB_DIR, path);
   if (!file.startsWith(WEB_DIR) || !existsSync(file) || statSync(file).isDirectory()) file = join(WEB_DIR, "index.html");
   res.writeHead(200, { "Content-Type": TYPES[extname(file)] || "application/octet-stream" });
-  res.end(req.method === "HEAD" ? undefined : readFileSync(file));
+  if (req.method === "HEAD") return res.end();
+  res.end(file.endsWith("index.html") ? withShareTags(readFileSync(file, "utf8"), req) : readFileSync(file));
+}
+
+// Link previews (texts, email, LinkedIn, Facebook) and home-screen icons: the Chart Academy graphic with Foresight.
+// Social sites need full addresses, so they're built from the address the page was requested at.
+const SHARE = {
+  title: "Foresight by Chart Academy",
+  description: "Let us help you predict your future. Free AI career coaching that scores every job 0 to 100 and shows your real chances of an interview and an offer.",
+};
+function withShareTags(html, req) {
+  const proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0];
+  const site = `${proto}://${req.headers.host}`;
+  const tags = [
+    `<meta name="description" content="${SHARE.description}">`,
+    `<meta property="og:type" content="website">`, `<meta property="og:site_name" content="Foresight">`,
+    `<meta property="og:title" content="${SHARE.title}">`, `<meta property="og:description" content="${SHARE.description}">`,
+    `<meta property="og:url" content="${site}/">`,
+    `<meta property="og:image" content="${site}/share.png">`, `<meta property="og:image:width" content="1200">`, `<meta property="og:image:height" content="630">`,
+    `<meta property="og:image:alt" content="Chart Academy logo with Foresight: Let us help you predict your future.">`,
+    `<meta name="twitter:card" content="summary_large_image">`, `<meta name="twitter:image" content="${site}/share.png">`,
+    `<link rel="apple-touch-icon" href="/apple-touch-icon.png">`, `<meta name="theme-color" content="#3A56A6">`,
+  ].join("");
+  return html.replace("</head>", `${tags}</head>`);
 }
 
 const server = createServer(async (req, res) => {
