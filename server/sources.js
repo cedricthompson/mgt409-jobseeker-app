@@ -38,6 +38,24 @@ export function sourcesConfigured() {
   return { usajobs: !!(e.USAJOBS_API_KEY && e.USAJOBS_EMAIL), adzuna: !!(e.ADZUNA_APP_ID && e.ADZUNA_APP_KEY), jsearch: !!e.JSEARCH_API_KEY, remotive: true };
 }
 const firstRole = (p) => (p.target_roles || [])[0] || (p.experience || [])[0]?.title || "";
+
+// Every role worth searching: up to three target roles plus the most recent job title.
+export const searchRoles = (p) => [...new Set([...(p.target_roles || []).slice(0, 3), (p.experience || [])[0]?.title]
+  .filter(Boolean).map((r) => String(r).trim()))];
+
+// Someone starting out (no jobs listed, or under a year in total) gets entry-level searches too,
+// so first-job seekers see fast food, retail, and "hiring now" openings.
+export const isEntryLevel = (p) => {
+  const jobs = p.experience || [];
+  if (!jobs.length) return true;
+  // Jobs listed without years don't count as "starting out"; only a known total under a year does.
+  return jobs.every((e) => e.years != null && e.years !== "") && jobs.reduce((s, e) => s + (Number(e.years) || 0), 0) < 1;
+};
+const ENTRY_SEARCHES = ["fast food crew member", "hiring immediately no experience"];
+
+// Postings that say they hire quickly: open interviews, immediate start, hired on the spot.
+const HIRING_NOW = /hiring immediately|immediate(ly)? (start|hire|hiring)|start (today|immediately|asap|right away)|on[- ]the[- ]spot|walk[- ]?in|open interview|same[- ]day (offer|hire|interview)|hiring event|now hiring|apply today,? start/i;
+export const markHiringNow = (j) => ({ ...j, hiring_now: HIRING_NOW.test(`${j.title} ${j.summary || ""}`) });
 const wantsRemote = (p) => /remote|any|hybrid|open/i.test(p.work_mode || "");
 
 // Job boards search best on a plain "City, ST", so a neighborhood or street is reduced to its metro.
@@ -50,7 +68,7 @@ async function searchPlace(city) {
 export async function usajobs(p) {
   const { USAJOBS_API_KEY: key, USAJOBS_EMAIL: email } = process.env;
   if (!key || !email) return [];
-  const keywords = [...new Set([(p.target_roles || [])[0], (p.experience || [])[0]?.title].filter(Boolean))];
+  const keywords = searchRoles(p).slice(0, 2);
   const where = await searchPlace(p.city);
   const results = await Promise.all(keywords.map((k) => usajobsSearch(k, where, key, email)));
   const seen = new Set();
@@ -84,8 +102,8 @@ async function usajobsSearch(keyword, city, key, email) {
 export async function adzuna(p) {
   const { ADZUNA_APP_ID: id, ADZUNA_APP_KEY: key } = process.env;
   if (!id || !key) return [];
-  // Search the target role and the most recent job title, like USAJobs, so a narrow title still finds openings.
-  const keywords = [...new Set([(p.target_roles || [])[0], (p.experience || [])[0]?.title].filter(Boolean))];
+  // Search every target role and the most recent job title, plus entry-level searches for first-job seekers.
+  const keywords = [...searchRoles(p), ...(isEntryLevel(p) ? ENTRY_SEARCHES : [])].slice(0, 5);
   const where = await searchPlace(p.city);
   const search = async (what) => {
     const qs = new URLSearchParams({
@@ -115,36 +133,42 @@ export async function adzuna(p) {
 // One search per match request, cached for an hour, to stay inside the free plan.
 export async function jsearch(p) {
   const key = process.env.JSEARCH_API_KEY;
-  const role = firstRole(p);
-  if (!key || !role) return [];
+  // Up to three searches per match (each cached for an hour): the target roles, and for first-job seekers
+  // one entry-level "hiring now" search. A wider net brings in more Indeed, LinkedIn, and Monster listings.
+  const roles = searchRoles(p);
+  const queries = (isEntryLevel(p) ? [...roles.slice(0, 2), ENTRY_SEARCHES[0]] : roles).slice(0, 3);
+  if (!key || !queries.length) return [];
   const where = await searchPlace(p.city);
-  const qs = new URLSearchParams({
-    query: where ? `${role} in ${where}` : role, page: "1", num_pages: "1", country: "us", date_posted: "month",
-    radius: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
-  });
-  try {
-    // JSearch is slower than the others (it searches Google live), so it gets more time.
-   const res = await getJson(`https://jsearch.p.rapidapi.com/search-v2?${qs}`, {
-      headers: { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" },
-    }, 20000);
-  const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
-    note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
-    return data.slice(0, 12).map((j) => {
-      const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";
-      const toYear = (n) => (n ? Math.round(hourly ? n * 2080 : n) : null);
-      return {
-        id: `jsearch-${j.job_id}`, title: j.job_title, company: j.employer_name,
-        city: [j.job_city, j.job_state].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : null),
-        lat: j.job_latitude ?? null, lng: j.job_longitude ?? null, work_mode: j.job_is_remote ? "remote" : "onsite",
-        pay_min: yearly || hourly ? toYear(j.job_min_salary) : null, pay_max: yearly || hourly ? toYear(j.job_max_salary) : null,
-        summary: (j.job_description || "").slice(0, 300), url: j.job_apply_link,
-        source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
-      };
+  const one = async (role) => {
+    const qs = new URLSearchParams({
+      query: where ? `${role} in ${where}` : role, page: "1", num_pages: "1", country: "us", date_posted: "month",
+      radius: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
     });
-  } catch (err) {
-    note("jsearch", 0, err.message);
-    return [];
-  }
+    try {
+      // JSearch is slower than the others (it searches Google live), so it gets more time.
+      const res = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}`, {
+        headers: { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" },
+      }, 20000);
+      const data = res.data || [];
+      note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
+      return data.slice(0, 10).map((j) => {
+        const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";
+        const toYear = (n) => (n ? Math.round(hourly ? n * 2080 : n) : null);
+        return {
+          id: `jsearch-${j.job_id}`, title: j.job_title, company: j.employer_name,
+          city: [j.job_city, j.job_state].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : null),
+          lat: j.job_latitude ?? null, lng: j.job_longitude ?? null, work_mode: j.job_is_remote ? "remote" : "onsite",
+          pay_min: yearly || hourly ? toYear(j.job_min_salary) : null, pay_max: yearly || hourly ? toYear(j.job_max_salary) : null,
+          summary: (j.job_description || "").slice(0, 300), url: j.job_apply_link,
+          source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
+        };
+      });
+    } catch (err) {
+      note("jsearch", 0, err.message);
+      return [];
+    }
+  };
+  return (await Promise.all(queries.map(one))).flat();
 }
 
 // Remotive (remote jobs). No key needed.
@@ -165,20 +189,16 @@ export async function remotive(p) {
 // The same opening often appears on several boards, so repeats (same title and company) are dropped.
 export async function liveJobs(p) {
   const [fed, board, google, remote] = await Promise.all([usajobs(p), adzuna(p), jsearch(p), remotive(p)]);
+  // Take turns between sources so no single one fills the list, then drop repeats (same title and company).
+  const lists = [google, board, isEntryLevel(p) ? [] : fed]; // federal listings rarely suit a first job
+  const mixed = [];
+  for (let i = 0; i < Math.max(...lists.map((l) => l.length)); i++) for (const l of lists) if (l[i]) mixed.push(l[i]);
   const seen = new Set();
-  const local = [...google, ...board, ...fed].filter((j) => {
+  const local = mixed.filter((j) => {
     const k = `${j.title}|${j.company}`.toLowerCase().replace(/\s+/g, " ");
     return !seen.has(k) && seen.add(k);
-  });
-  return { local, remote };
-}
-
-// Starts the live job search in the background while the applicant is still answering profile
-// questions. JSearch alone takes 10-30 seconds, so by the time they open their matches the results
-// are usually already cached. Same searches as matchJobs, so no extra cost unless the role, city,
-// or commute changes between answers. Never throws: each source already handles its own errors.
-export function prefetchJobs(p) {
-  if (p?.city && firstRole(p)) liveJobs(p).catch(() => {});
+  }).map(markHiringNow);
+  return { local, remote: remote.map(markHiringNow) };
 }
 
 // "$14/hour" -> 29120 a year; "70K-80K" -> 70000-80000. Unparseable text stays as text only.

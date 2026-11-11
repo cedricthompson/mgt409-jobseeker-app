@@ -6,7 +6,7 @@ import { useTracker } from '../tracker';
 import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
 import SearchElsewhere from '../components/SearchElsewhere';
 
-type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
+type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
 const FIT_LABEL = { strong: 'Strong match', good: 'Good match', stretch: 'Stretch' };
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
@@ -101,6 +101,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
                   <Text style={styles.scoreOf}>/100</Text>
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
+                  {job.hiring_now && <Text style={styles.now} accessibilityLabel="Hiring now: this employer says it hires quickly">Hiring now</Text>}
                   <Text style={styles.jobTitle} role="heading" aria-level={2}>{job.title}</Text>
                   <Text style={type.small}>{[job.company, job.city].filter(Boolean).join(' · ')}</Text>
                   <Text style={type.small}>
@@ -184,6 +185,7 @@ const styles = StyleSheet.create({
   score: { width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center' },
   scoreNum: { fontSize: 24, fontWeight: '800', color: colors.blue },
   scoreOf: { fontSize: 12, color: colors.muted, marginTop: -4 },
+  now: { alignSelf: 'flex-start', backgroundColor: colors.red, color: colors.white, fontSize: 14, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   jobTitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
   fit: { fontSize: 16, fontWeight: '700', color: colors.blue },
   toggle: { minHeight: 48, justifyContent: 'center' },

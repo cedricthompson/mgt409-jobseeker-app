@@ -4,7 +4,7 @@
 // Step 2 (one model call): rank the shortlist and explain each match.
 import { readFileSync } from "node:fs";
 import { chat } from "../llm.js";
-import { liveJobs } from "../sources.js";
+import { isEntryLevel, liveJobs, markHiringNow } from "../sources.js";
 import { geocode, metroFor } from "../geo.js";
 import { SAFETY, accessibility } from "./common.js";
 import { jobFacts } from "./fairness.js";
@@ -25,27 +25,30 @@ async function localJobs(p) {
 const SYSTEM = `You are the Job Matcher agent of a job search app. Rank the jobs that best fit the applicant.
 Consider target roles, transferable experience (e.g. shift lead -> supervisor roles), certifications, clearance, pay target, and work mode.
 Include realistic stretch roles that fit the applicant's direction. Never use protected traits.
+If the applicant is starting out (little or no work history), rank entry-level jobs that need no experience first
+(fast food, retail, customer service, warehouse, and similar), especially ones marked hiring_now, and do not include
+jobs that require years of experience or a degree they don't have.
 ${SAFETY}
 Reply ONLY with JSON: {"matches": [{"id": string, "fit": "strong" | "good" | "stretch", "why": string, "gaps": [string]}]}
-Return up to 8 matches, best first. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
+Return up to 10 matches, best first. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
 
 const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.city, mode: j.work_mode,
   pay: j.pay_min ? `${j.pay_min}-${j.pay_max}` : j.pay_text, exp_years: j.experience_years,
-  certs: j.required_certs, clearance: j.clearance, skills: j.skills, source: j.source || "sample",
+  certs: j.required_certs, clearance: j.clearance, skills: j.skills, source: j.source || "sample", hiring_now: j.hiring_now || undefined,
   summary: j.source ? j.summary : undefined });
 
 export async function matchJobs({ profile = {}, session, prefs }) {
   // Real local listings come first. Sample jobs are fictional, so they're only used when
   // no live local source returns anything (no keys set, offline, or no results).
   const live = await liveJobs(profile);
-  const local = live.local.length ? live.local : await localJobs(profile);
-  const jobs = [...local.slice(0, 30), ...live.remote]; // cap the list so the ranking call stays affordable
+  const local = live.local.length ? live.local : (await localJobs(profile)).map(markHiringNow);
+  const jobs = [...local.slice(0, 40), ...live.remote]; // cap the list so the ranking call stays affordable
   const byId = Object.fromEntries(jobs.map((j) => [j.id, j]));
 
   const { text } = await chat(
     [
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
-      { role: "user", content: `Applicant: ${JSON.stringify(jobFacts(profile))}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
+      { role: "user", content: `Applicant: ${JSON.stringify({ ...jobFacts(profile), starting_out: isEntryLevel(profile) || undefined })}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
     ],
     { json: true, agent: "matcher", session }
   );

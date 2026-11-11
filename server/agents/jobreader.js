@@ -15,6 +15,7 @@ import { isIP } from "node:net";
 import { chat } from "../llm.js";
 import { SAFETY } from "./common.js";
 import { scorecard } from "./scorecard.js";
+import { markHiringNow } from "../sources.js";
 
 const MAX_PAGE = 2 * 1024 * 1024; // read at most 2 MB of any page
 const MAX_TEXT = 12000; // characters of posting text sent to the model
@@ -189,7 +190,7 @@ export async function readJob({ url, text, session }) {
 
 // Read the job, then score it with the Scorecard agent.
 export async function checkJob({ url, text, profile = {}, session, prefs }) {
-  const job = await readJob({ url, text, session });
+  const job = markHiringNow(await readJob({ url, text, session }));
   const [card] = await scorecard({ profile, jobs: [job], session, prefs });
   return { job, card };
 }

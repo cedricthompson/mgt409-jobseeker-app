@@ -8,7 +8,7 @@ import { useTracker } from '../tracker';
 import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
 import SearchElsewhere from '../components/SearchElsewhere';
 
-type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; url?: string; source?: string; summary?: string };
+type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; url?: string; source?: string; summary?: string };
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
 
 export default function CheckJobScreen({ profile, prefs, onBack, onTracker, onBuildProfile }: {
@@ -109,6 +109,7 @@ export default function CheckJobScreen({ profile, prefs, onBack, onTracker, onBu
 
         {result && job && (
           <View style={styles.card}>
+            {job.hiring_now && <Text style={styles.now} accessibilityLabel="Hiring now: this employer says it hires quickly">Hiring now</Text>}
             <Text style={styles.jobTitle} role="heading" aria-level={2}>{job.title}</Text>
             <Text style={type.small}>{[job.company, job.city].filter(Boolean).join(' · ')}</Text>
             <Text style={type.small}>
@@ -160,6 +161,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
   error: { fontSize: 18, color: colors.red },
   card: { borderWidth: 2, borderColor: colors.line, borderRadius: radius, padding: space.md, gap: space.sm },
+  now: { alignSelf: 'flex-start', backgroundColor: colors.red, color: colors.white, fontSize: 14, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   jobTitle: { fontSize: 22, fontWeight: '700', color: colors.ink },
   actions: { flexDirection: 'row', gap: space.sm },
   saveBtn: { minHeight: 52, minWidth: 100, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
