@@ -82,6 +82,7 @@ async function usajobsSearch(keyword, city, key, email) {
       headers: { Host: "data.usajobs.gov", "User-Agent": email, "Authorization-Key": key }, signal: timeout(),
     });
     const items = data.SearchResult?.SearchResultItems ?? [];
+    note("usajobs", items.length);
     return items.map(({ MatchedObjectDescriptor: d }) => {
       const pay = d.PositionRemuneration?.[0] ?? {};
       const yearly = pay.RateIntervalCode === "PA";
@@ -93,7 +94,8 @@ async function usajobsSearch(keyword, city, key, email) {
         summary: (d.QualificationSummary || "").slice(0, 300), url: d.PositionURI, source: "USAJobs",
       };
     });
-  } catch {
+  } catch (err) {
+    note("usajobs", 0, err.message);
     return [];
   }
 }
@@ -111,8 +113,11 @@ export async function adzuna(p) {
       distance: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
     });
     try {
-      return (await getJson(`https://api.adzuna.com/v1/api/jobs/us/search/1?${qs}`)).results ?? [];
-    } catch {
+      const results = (await getJson(`https://api.adzuna.com/v1/api/jobs/us/search/1?${qs}`)).results ?? [];
+      note("adzuna", results.length);
+      return results;
+    } catch (err) {
+      note("adzuna", 0, err.message);
       return [];
     }
   };
@@ -141,15 +146,20 @@ export async function jsearch(p) {
   const where = await searchPlace(p.city);
   const one = async (role) => {
     const qs = new URLSearchParams({
-      query: where ? `${role} in ${where}` : role, page: "1", num_pages: "1", country: "us", date_posted: "month",
+      query: where ? `${role} in ${where}` : role, num_pages: "1", country: "us", date_posted: "month",
       radius: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
     });
+    const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" };
     try {
       // JSearch is slower than the others (it searches Google live), so it gets more time.
-      const res = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}`, {
-        headers: { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" },
-      }, 20000);
-      const data = res.data || [];
+      // In November 2026 JSearch moved search to /search-v2 (jobs under data.jobs); the old /search is kept as a fallback.
+      let res;
+      try { res = await getJson(`https://jsearch.p.rapidapi.com/search-v2?${qs}`, { headers }, 20000); }
+      catch (err) {
+        if (!/HTTP 404/.test(err.message)) throw err;
+        res = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}&page=1`, { headers }, 20000);
+      }
+      const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
       note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
       return data.slice(0, 10).map((j) => {
         const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";

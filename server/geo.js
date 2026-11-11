@@ -12,8 +12,8 @@ export async function geocode(place) {
     });
     const [hit] = await res.json();
     if (hit) point = { lat: Number(hit.lat), lng: Number(hit.lon) };
-  } catch { /* no point: commute score falls back to unknown */ }
-  cache.set(place, point);
+    cache.set(place, point); // remember real answers, including "no such place"
+  } catch { /* lookup failed (slow or busy): try again next time; commute score falls back to unknown */ }
   return point;
 }
 
