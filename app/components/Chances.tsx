@@ -6,9 +6,11 @@ import { colors, radius, space, type, themed } from '../theme';
 
 export type Part = { score: number | null; note: string };
 export type Odds = 'interview' | 'hire' | 'promotion_1yr' | 'retain_12' | 'retain_18' | 'retain_24';
+export type Requirement = { skill: string; from: 'listing' | 'onet'; have: boolean; evidence: string };
 export type Card = {
   id: string; overall: number | null; parts: Record<string, Part>; explanation?: string; improve?: string; basis?: string;
   predictions: Partial<Record<Odds, number>>;
+  requirements?: Requirement[]; occupation?: { code: string; title: string } | null;
 };
 
 const PART_LABELS: Record<string, string> = { skills: 'Skills', credentials: 'Credentials', experience: 'Experience', pay: 'Pay', commute: 'Commute' };

@@ -6,7 +6,7 @@ import { applyTheme, isDark } from './theme';
 import WelcomeScreen from './screens/WelcomeScreen';
 import ImportScreen from './screens/ImportScreen';
 import ChatScreen from './screens/ChatScreen';
-import MatchesScreen from './screens/MatchesScreen';
+import MatchesScreen, { MATCHES_KEY } from './screens/MatchesScreen';
 import TrackerScreen from './screens/TrackerScreen';
 import CoachScreen, { CoachTask } from './screens/CoachScreen';
 import { TrackedJob } from './tracker';
@@ -26,6 +26,7 @@ export default function App() {
   const setScreen = (s: Screen) => { setPrevious(screen); setScreenState(s); };
   const [profile, setProfileState] = useState<Profile>({});
   const [prefs, setPrefsState] = useState<Prefs>({});
+  const [hasMatches, setHasMatches] = useState(false);
   const [startMethod, setStartMethod] = useState<StartMethod | undefined>();
   const [coachFor, setCoachFor] = useState<{ item: TrackedJob; task: CoachTask } | null>(null);
 
@@ -39,6 +40,7 @@ export default function App() {
   // The profile and settings are kept on this device, so returning applicants don't start over.
   // When signed in, they also come from the account, so changes made on another device show up here.
   useEffect(() => {
+    AsyncStorage.getItem(MATCHES_KEY).then((m) => setHasMatches(!!m));
     AsyncStorage.multiGet(['profile.v1', 'prefs.v1']).then(([[, p], [, pr]]) => {
       if (p) setProfileState(JSON.parse(p));
       if (pr) setPrefs(JSON.parse(pr), false);
@@ -66,6 +68,7 @@ export default function App() {
           onTracker={() => setScreen('tracker')}
           onCheckJob={() => setScreen('check')}
           onScorecard={() => setScreen('score')}
+          onMatches={hasMatches && profile && Object.keys(profile).length ? () => setScreen('matches') : undefined}
           onAccount={accountsOn ? () => setScreen('account') : undefined}
           accountEmail={accountEmail}
           onSettings={() => setScreen('settings')}
@@ -93,7 +96,7 @@ export default function App() {
           profile={profile}
           prefs={prefs}
           onBack={() => setScreen('import')}
-          onDone={(p) => { setProfile(p); setScreen('matches'); }}
+          onDone={(p) => { setProfile(p); setHasMatches(true); setScreen('matches'); }}
         />
       )}
       {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => setScreen('chat')} onTracker={() => setScreen('tracker')} onCheckJob={() => setScreen('check')} signedIn={!!accountEmail || !accountsOn} onAccount={() => setScreen('account')} />}

@@ -3,12 +3,15 @@ import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, Text, 
 import { post, Prefs, Profile } from '../api';
 import { colors, radius, space, type, themed } from '../theme';
 import { useTracker } from '../tracker';
-import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Card, ChancesHeadline } from '../components/Chances';
+import WhyScore from '../components/WhyScore';
 import SearchElsewhere from '../components/SearchElsewhere';
 
 type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
 const FIT_LABEL = { strong: 'Strong match', good: 'Good match', stretch: 'Stretch' };
+export const MATCHES_KEY = 'matches.v1';
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
 
 export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob, signedIn, onAccount }: {
@@ -24,21 +27,36 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   const [error, setError] = useState('');
   const started = useRef(false);
 
+  // The last matches for this profile are kept on the device, so they're still here after leaving this
+  // screen or reloading the page. "Search again" runs a fresh search.
+  const search = async (fresh: boolean) => {
+    setError(''); setOpen(null);
+    try {
+      if (!fresh) {
+        const saved = JSON.parse((await AsyncStorage.getItem(MATCHES_KEY)) || 'null');
+        if (saved?.profile === JSON.stringify(profile) && saved.matches?.length) {
+          setMatches(saved.matches); setCards(saved.cards || {}); setSample(!!saved.sample); setStep('');
+          return;
+        }
+      }
+      setMatches([]); setCards({}); setStep('Finding jobs near you…');
+      const m = await post<{ matches: Match[]; data: string }>('/api/match', { profile, prefs });
+      setMatches(m.matches); setSample(m.data === 'sample');
+      setStep('Scoring each job…');
+      const s = await post<Card[]>('/api/scorecard', { profile, prefs, jobs: m.matches.map((x) => x.job) });
+      const byId = Object.fromEntries(s.map((c) => [c.id, c]));
+      setCards(byId);
+      setStep('');
+      AsyncStorage.setItem(MATCHES_KEY, JSON.stringify({ profile: JSON.stringify(profile), matches: m.matches, cards: byId, sample: m.data === 'sample', at: Date.now() }));
+    } catch (e) {
+      setError(`Something went wrong. ${(e as Error).message}`); setStep('');
+    }
+  };
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    (async () => {
-      try {
-        const m = await post<{ matches: Match[]; data: string }>('/api/match', { profile, prefs });
-        setMatches(m.matches); setSample(m.data === 'sample');
-        setStep('Scoring each job…');
-        const s = await post<Card[]>('/api/scorecard', { profile, prefs, jobs: m.matches.map((x) => x.job) });
-        setCards(Object.fromEntries(s.map((c) => [c.id, c])));
-        setStep('');
-      } catch (e) {
-        setError(`Something went wrong. ${(e as Error).message}`); setStep('');
-      }
-    })();
+    search(false);
   }, []);
 
   // Saving keeps a copy of the scorecard so the outcome can later be compared with the prediction.
@@ -59,6 +77,11 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
             <Text style={styles.backText}>My applications ({tracker.items.length}) ›</Text>
           </Pressable>
         </View>
+        {!step && matches.length > 0 && (
+          <Pressable onPress={() => search(true)} accessibilityRole="button" accessibilityLabel="Search again for new jobs" style={styles.back}>
+            <Text style={styles.backText}>↻ Search again for new jobs</Text>
+          </Pressable>
+        )}
 
         {!signedIn && (
           <Pressable onPress={onAccount} style={styles.banner} accessibilityRole="button" accessibilityLabel="Create a free account to keep your profile and applications on any device">
@@ -119,19 +142,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
               <Text style={type.body}>{why}</Text>
               {gaps.length > 0 && <Text style={type.small}>To close the gap: {gaps.map((g) => g.replace(/\.$/, '')).join('; ')}.</Text>}
 
-              {c && (
-                <Pressable
-                  onPress={() => setOpen(expanded ? null : id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded }}
-                  accessibilityLabel={expanded ? 'Hide full scorecard' : 'Show full scorecard'}
-                  style={styles.toggle}
-                >
-                  <Text style={styles.toggleText}>{expanded ? 'Hide full scorecard ▲' : 'Show full scorecard ▼'}</Text>
-                </Pressable>
-              )}
-
-              {c && expanded && <ScoreDetails card={c} />}
+              {c && expanded && <WhyScore card={c} />}
 
               <View style={styles.actions}>
                 <Pressable
@@ -144,9 +155,20 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
                 >
                   <Text style={[styles.saveText, tracker.has(id) && { color: colors.muted }]}>{tracker.has(id) ? 'Saved ✓' : 'Save'}</Text>
                 </Pressable>
+                {c && (
+                  <Pressable
+                    style={[styles.whyBtn, expanded && { backgroundColor: colors.tint }]}
+                    onPress={() => setOpen(expanded ? null : id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    accessibilityLabel={expanded ? `Hide why ${job.title} scored ${c.overall}` : `Why ${job.title} scored ${c.overall}: skills you have, skills to build, and how your chances were figured`}
+                  >
+                    <Text style={styles.whyText}>{expanded ? 'Hide feedback ▲' : 'Why this score?'}</Text>
+                  </Pressable>
+                )}
                 {job.url && (
                   <Pressable
-                    style={[styles.apply, { flex: 1 }]}
+                    style={[styles.apply, { flexGrow: 1, minWidth: 180 }]}
                     onPress={() => { save(id, job, c); Linking.openURL(job.url!); }}
                     accessibilityRole="link"
                     accessibilityLabel={`View and apply for ${job.title}. It will be saved to your tracker.`}
@@ -188,10 +210,10 @@ const styles = themed(() => ({
   now: { alignSelf: 'flex-start', backgroundColor: colors.red, color: colors.onAccent, fontSize: 14, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
   jobTitle: { fontSize: 20, fontWeight: '700', color: colors.ink },
   fit: { fontSize: 16, fontWeight: '700', color: colors.blue },
-  toggle: { minHeight: 48, justifyContent: 'center' },
-  toggleText: { fontSize: 18, fontWeight: '600', color: colors.blue },
   titleRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: space.sm },
-  actions: { flexDirection: 'row', gap: space.sm },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  whyBtn: { minHeight: 52, borderRadius: radius, borderWidth: 2, borderColor: colors.orange, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
+  whyText: { fontSize: 18, fontWeight: '700', color: colors.orange },
   saveBtn: { minHeight: 52, minWidth: 100, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
   saveText: { fontSize: 18, fontWeight: '700', color: colors.blue },
   apply: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },

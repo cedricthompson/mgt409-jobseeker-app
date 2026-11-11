@@ -33,8 +33,8 @@ const STEPS = [
   { coach: 'coach', title: 'Apply with confidence', text: 'A tailored resume, cover letter, and follow-ups for the jobs worth your time.' },
 ];
 
-export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorecard, onAccount, accountEmail, onSettings }: {
-  onStart: (method?: StartMethod) => void; onTracker: () => void; onCheckJob: () => void; onScorecard: () => void; onAccount?: () => void; accountEmail: string | null;
+export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorecard, onMatches, onAccount, accountEmail, onSettings }: {
+  onStart: (method?: StartMethod) => void; onTracker: () => void; onCheckJob: () => void; onScorecard: () => void; onMatches?: () => void; onAccount?: () => void; accountEmail: string | null;
   onSettings: () => void; reduceMotion?: boolean;
 }) {
   // Step cards: five across on wide screens, three then two on tablets, one per row on phones.
@@ -118,6 +118,11 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
             })}
           </View>
           <View style={styles.startLinks}>
+            {onMatches && (
+              <Pressable onPress={onMatches} accessibilityRole="button" accessibilityLabel="See my last job matches" style={styles.textLink}>
+                <Text style={styles.textLinkText}>See my last matches →</Text>
+              </Pressable>
+            )}
             <Pressable onPress={onCheckJob} accessibilityRole="button" accessibilityLabel="Check a job you found" style={styles.textLink}>
               <Text style={styles.textLinkText}>Found a job on Indeed or LinkedIn? Check your chances →</Text>
             </Pressable>
