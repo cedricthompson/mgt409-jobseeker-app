@@ -11,7 +11,7 @@ import { profileChat } from "./agents/orchestrator.js";
 import { matchJobs } from "./agents/matcher.js";
 import { scorecard } from "./agents/scorecard.js";
 import { coach } from "./agents/coach.js";
-import { sourceStatus, sourcesConfigured } from "./sources.js";
+import { prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
 
 const PORT = process.env.PORT || 3001;
 const WEB_DIR = resolve(repoRoot, "app", "dist"); // built by `npm run build`
@@ -53,7 +53,11 @@ const routes = {
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
   "POST /api/import": async (req) => importResume(await readJson(req)),
-  "POST /api/profile-chat": async (req) => profileChat(await readJson(req)),
+  "POST /api/profile-chat": async (req) => {
+    const r = await profileChat(await readJson(req));
+    prefetchJobs(r.profile); // warm the job search cache before the applicant opens matches
+    return r;
+  },
   "POST /api/match": async (req) => matchJobs(await readJson(req)),
   "POST /api/scorecard": async (req) => scorecard(await readJson(req)),
   "POST /api/coach": async (req) => coach(await readJson(req)),

@@ -10,14 +10,22 @@ const LIMIT = 8;
 // which keeps us well under each source's free daily limit. Kept in memory only (URLs can contain keys), never written to disk.
 const SEARCH_TTL = 3600e3;
 const searchCache = new Map();
+// Searches still running, so a match request that arrives during a background prefetch
+// (see prefetchJobs) waits for that search instead of starting a second one.
+const inFlight = new Map();
 async function getJson(url, options = {}, ms = 6000) {
   const hit = searchCache.get(url);
   if (hit && Date.now() - hit.at < SEARCH_TTL) return hit.data;
-  const res = await fetch(url, { ...options, signal: AbortSignal.timeout(ms) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`);
-  const data = await res.json();
-  searchCache.set(url, { at: Date.now(), data });
-  return data;
+  if (inFlight.has(url)) return inFlight.get(url);
+  const request = (async () => {
+    const res = await fetch(url, { ...options, signal: AbortSignal.timeout(ms) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`);
+    const data = await res.json();
+    searchCache.set(url, { at: Date.now(), data });
+    return data;
+  })().finally(() => inFlight.delete(url));
+  inFlight.set(url, request);
+  return request;
 }
 const timeout = () => AbortSignal.timeout(6000);
 
@@ -163,6 +171,14 @@ export async function liveJobs(p) {
     return !seen.has(k) && seen.add(k);
   });
   return { local, remote };
+}
+
+// Starts the live job search in the background while the applicant is still answering profile
+// questions. JSearch alone takes 10-30 seconds, so by the time they open their matches the results
+// are usually already cached. Same searches as matchJobs, so no extra cost unless the role, city,
+// or commute changes between answers. Never throws: each source already handles its own errors.
+export function prefetchJobs(p) {
+  if (p?.city && firstRole(p)) liveJobs(p).catch(() => {});
 }
 
 // "$14/hour" -> 29120 a year; "70K-80K" -> 70000-80000. Unparseable text stays as text only.
