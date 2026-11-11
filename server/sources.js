@@ -201,6 +201,14 @@ export async function liveJobs(p) {
   return { local, remote: remote.map(markHiringNow) };
 }
 
+// Starts the live job search in the background while the applicant is still answering profile
+// questions. JSearch alone takes 10-30 seconds, so by the time they open their matches the results
+// are usually already cached. Same searches as matchJobs, so no extra cost unless the role, city,
+// or commute changes between answers. Never throws: each source already handles its own errors.
+export function prefetchJobs(p) {
+  if (p?.city && searchRoles(p).length) liveJobs(p).catch(() => {});
+}
+
 // "$14/hour" -> 29120 a year; "70K-80K" -> 70000-80000. Unparseable text stays as text only.
 function yearlyPay(text = "") {
   const nums = [...String(text).matchAll(/\$?\s*(\d+(?:[.,]\d+)?)\s*(k)?/gi)].map((m) => parseFloat(m[1].replace(",", "")) * (m[2] ? 1000 : 1));
