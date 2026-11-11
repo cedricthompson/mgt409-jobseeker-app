@@ -15,8 +15,10 @@ with predicted outcomes, and tracks every application.
 | 1 | **Intake / Profile Builder** | Collects location, education, work history, certifications (IT, Security, ServSafe, etc.), and security clearances in a conversation |
 | 2 | **Gap Analysis Interviewer** | Reviews the profile, asks follow-up questions to fill gaps, and surfaces underplayed skills that lead to higher pay |
 | 3 | **Job Matcher** | Finds and ranks real job openings near the candidate |
-| 4 | **Scorecard / Predictor** | Scores each job 0 to 100 on commute, skills, credentials, and pay, and estimates interview, hire, promotion, and 12/18/24-month retention chances, with a reason for every number |
+| 4 | **Scorecard / Predictor** | Scores each job 0 to 100 on commute, skills, credentials, and pay, and estimates interview, hire, promotion, and 12/18/24-month retention chances, with a reason for every number. **Check any job:** its Job Reader tool reads a job link (or a pasted description) from any site and predicts the applicant's chances for that exact job |
 | 5 | **Application Coach** | Writes a tailored resume and cover letter, drafts follow-ups, and coaches the candidate through the tracker |
+
+**Job sources:** USAJobs, Adzuna, Google Jobs through JSearch (listings posted on LinkedIn, Indeed, Glassdoor, ZipRecruiter, and company sites), and Remotive. LinkedIn and Indeed don't allow apps to read their pages directly, so for a link from those sites the app asks the applicant to paste the description.
 
 The **application tracker** (Saved → Applied → Screening → Interviewing → Offer) is an app
 feature that the agents read from and write to.

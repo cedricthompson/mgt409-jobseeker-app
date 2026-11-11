@@ -11,6 +11,7 @@ import { profileChat } from "./agents/orchestrator.js";
 import { matchJobs } from "./agents/matcher.js";
 import { scorecard } from "./agents/scorecard.js";
 import { coach } from "./agents/coach.js";
+import { checkJob } from "./agents/jobreader.js";
 import { prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
 
 const PORT = process.env.PORT || 3001;
@@ -61,6 +62,7 @@ const routes = {
   "POST /api/match": async (req) => matchJobs(await readJson(req)),
   "POST /api/scorecard": async (req) => scorecard(await readJson(req)),
   "POST /api/coach": async (req) => coach(await readJson(req)),
+  "POST /api/check-job": async (req) => checkJob(await readJson(req)),
 };
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",

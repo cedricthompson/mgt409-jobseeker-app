@@ -13,12 +13,13 @@ const PHOTOS: { source: number; alt: string }[] = [
 const STEPS = [
   { title: 'Share your background', text: 'Upload, photograph, paste, or speak your resume.' },
   { title: 'Find your hidden strengths', text: 'We ask a few questions to uncover skills that raise your pay.' },
-  { title: 'See your best matches', text: 'Every job gets a 0 to 100 score with your chances explained.' },
+  { title: 'See your chances', text: 'For every job, we predict your odds of getting an interview, getting hired, and still being there a year later.' },
+  { title: 'Check any job you find', text: 'Paste a link or description from Indeed, LinkedIn, or any site to see your chances for that job.' },
   { title: 'Track every application', text: 'Stay organized from first click to job offer.' },
 ];
 
-export default function WelcomeScreen({ onStart, onTracker, onSettings, reduceMotion }: {
-  onStart: () => void; onTracker: () => void; onSettings: () => void; reduceMotion?: boolean;
+export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onSettings, reduceMotion }: {
+  onStart: () => void; onTracker: () => void; onCheckJob: () => void; onSettings: () => void; reduceMotion?: boolean;
 }) {
   return (
     <SafeAreaView style={styles.safe}>
@@ -52,6 +53,9 @@ export default function WelcomeScreen({ onStart, onTracker, onSettings, reduceMo
           <Text style={styles.ctaText}>Get started</Text>
         </Pressable>
         <View style={styles.links}>
+          <Pressable onPress={onCheckJob} accessibilityRole="button" accessibilityLabel="Check a job you found" style={styles.link}>
+            <Text style={styles.linkText}>Check a job you found</Text>
+          </Pressable>
           <Pressable onPress={onTracker} accessibilityRole="button" accessibilityLabel="My applications" style={styles.link}>
             <Text style={styles.linkText}>My applications</Text>
           </Pressable>

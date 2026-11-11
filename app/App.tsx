@@ -10,8 +10,9 @@ import TrackerScreen from './screens/TrackerScreen';
 import CoachScreen, { CoachTask } from './screens/CoachScreen';
 import { TrackedJob } from './tracker';
 import SettingsScreen from './screens/SettingsScreen';
+import CheckJobScreen from './screens/CheckJobScreen';
 
-type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings';
+type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings' | 'check';
 
 export default function App() {
   const [screen, setScreenState] = useState<Screen>('welcome');
@@ -37,6 +38,7 @@ export default function App() {
         <WelcomeScreen
           onStart={() => setScreen('import')}
           onTracker={() => setScreen('tracker')}
+          onCheckJob={() => setScreen('check')}
           onSettings={() => setScreen('settings')}
           reduceMotion={prefs.reduce_motion}
         />
@@ -57,7 +59,16 @@ export default function App() {
           onDone={(p) => { setProfile(p); setScreen('matches'); }}
         />
       )}
-      {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => setScreen('chat')} onTracker={() => setScreen('tracker')} />}
+      {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => setScreen('chat')} onTracker={() => setScreen('tracker')} onCheckJob={() => setScreen('check')} />}
+      {screen === 'check' && (
+        <CheckJobScreen
+          profile={profile}
+          prefs={prefs}
+          onBack={() => setScreenState(previous === 'check' ? 'welcome' : previous)}
+          onTracker={() => setScreen('tracker')}
+          onBuildProfile={() => setScreen('import')}
+        />
+      )}
       {screen === 'tracker' && (
         <TrackerScreen
           onBack={() => setScreen(previous === 'tracker' || previous === 'coach' ? 'welcome' : previous)}

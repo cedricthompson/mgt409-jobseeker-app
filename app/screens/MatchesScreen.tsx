@@ -3,36 +3,15 @@ import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleS
 import { post, Prefs, Profile } from '../api';
 import { colors, radius, space, type } from '../theme';
 import { useTracker } from '../tracker';
+import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
 
 type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
-type Part = { score: number | null; note: string };
-type Card = {
-  id: string; overall: number | null; parts: Record<string, Part>; explanation?: string; improve?: string;
-  predictions: Partial<Record<'interview' | 'hire' | 'promotion_1yr' | 'retain_12' | 'retain_18' | 'retain_24', number>>;
-};
-
-const PART_LABELS: Record<string, string> = { skills: 'Skills', credentials: 'Credentials', experience: 'Experience', pay: 'Pay', commute: 'Commute' };
-const ODDS: [keyof Card['predictions'], string][] = [
-  ['interview', 'Get an interview'], ['hire', 'Get hired'], ['promotion_1yr', 'Promoted within 1 year'],
-  ['retain_12', 'Still there at 12 months'], ['retain_18', 'Still there at 18 months'], ['retain_24', 'Still there at 24 months'],
-];
 const FIT_LABEL = { strong: 'Strong match', good: 'Good match', stretch: 'Stretch' };
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
 
-function Bar({ label, value }: { label: string; value?: number | null }) {
-  const v = value ?? 0;
-  return (
-    <View style={styles.barRow} accessible accessibilityLabel={`${label}: ${value == null ? 'unknown' : `${v} percent`}`}>
-      <Text style={styles.barLabel}>{label}</Text>
-      <View style={styles.barTrack}><View style={[styles.barFill, { width: `${v}%` }]} /></View>
-      <Text style={styles.barValue}>{value == null ? '–' : `${v}%`}</Text>
-    </View>
-  );
-}
-
-export default function MatchesScreen({ profile, prefs, onBack, onTracker }: {
-  profile: Profile; prefs: Prefs; onBack: () => void; onTracker: () => void;
+export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob }: {
+  profile: Profile; prefs: Prefs; onBack: () => void; onTracker: () => void; onCheckJob: () => void;
 }) {
   const tracker = useTracker();
   const [step, setStep] = useState('Finding jobs near you…');
@@ -79,6 +58,16 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker }: {
           </Pressable>
         </View>
 
+        <Pressable
+          onPress={onCheckJob}
+          style={({ pressed }) => [styles.checkBtn, pressed && { opacity: 0.85 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Check a job you found"
+          accessibilityHint="Paste a link or job description to see your chances for that job"
+        >
+          <Text style={styles.checkText}>Found a job somewhere else? Check your chances ›</Text>
+        </Pressable>
+
         <View aria-live="polite">
           {step ? <View style={styles.row}><ActivityIndicator color={colors.blue} /><Text style={type.body}>{step}</Text></View> : null}
           {error ? <Text style={styles.error} role="alert">{error}</Text> : null}
@@ -118,6 +107,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker }: {
                 </View>
               </View>
 
+              <ChancesHeadline card={c} />
               <Text style={type.body}>{why}</Text>
               {gaps.length > 0 && <Text style={type.small}>To close the gap: {gaps.map((g) => g.replace(/\.$/, '')).join('; ')}.</Text>}
 
@@ -126,36 +116,14 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker }: {
                   onPress={() => setOpen(expanded ? null : id)}
                   accessibilityRole="button"
                   accessibilityState={{ expanded }}
-                  accessibilityLabel={expanded ? 'Hide scorecard' : 'Show scorecard'}
+                  accessibilityLabel={expanded ? 'Hide full scorecard' : 'Show full scorecard'}
                   style={styles.toggle}
                 >
-                  <Text style={styles.toggleText}>{expanded ? 'Hide scorecard ▲' : 'Show scorecard ▼'}</Text>
+                  <Text style={styles.toggleText}>{expanded ? 'Hide full scorecard ▲' : 'Show full scorecard ▼'}</Text>
                 </Pressable>
               )}
 
-              {c && expanded && (
-                <View style={{ gap: space.md }}>
-                  <Text style={styles.sub} role="heading" aria-level={3}>How you fit</Text>
-                  {Object.entries(PART_LABELS).map(([k, label]) => (
-                    <View key={k} style={{ gap: 2 }}>
-                      <Bar label={label} value={c.parts[k]?.score} />
-                      <Text style={styles.note}>{c.parts[k]?.note}</Text>
-                    </View>
-                  ))}
-                  <Text style={styles.sub} role="heading" aria-level={3}>Your chances (estimates)</Text>
-                  {ODDS.map(([k, label]) => <Bar key={k} label={label} value={c.predictions[k]} />)}
-                  {c.explanation ? <Text style={type.small}>{c.explanation}</Text> : null}
-                  {c.improve ? (
-                    <View style={styles.tip}>
-                      <Text style={styles.tipTitle}>Best next step</Text>
-                      <Text style={type.body}>{c.improve}</Text>
-                    </View>
-                  ) : null}
-                  <Text style={styles.note}>
-                    Estimates use your fit and typical hiring and turnover patterns for this kind of job. They are not guarantees.
-                  </Text>
-                </View>
-              )}
+              {c && expanded && <ScoreDetails card={c} />}
 
               <View style={styles.actions}>
                 <Pressable
@@ -211,20 +179,13 @@ const styles = StyleSheet.create({
   fit: { fontSize: 16, fontWeight: '700', color: colors.blue },
   toggle: { minHeight: 48, justifyContent: 'center' },
   toggleText: { fontSize: 18, fontWeight: '600', color: colors.blue },
-  sub: { ...type.heading, fontSize: 18 },
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  barLabel: { width: 150, fontSize: 16, color: colors.ink },
-  barTrack: { flex: 1, height: 12, backgroundColor: colors.tint, borderRadius: 6, overflow: 'hidden' },
-  barFill: { height: 12, backgroundColor: colors.blue },
-  barValue: { width: 48, textAlign: 'right', fontSize: 16, fontWeight: '700', color: colors.ink },
-  note: { ...type.small, fontSize: 15 },
-  tip: { backgroundColor: colors.tint, borderLeftWidth: 4, borderLeftColor: colors.red, padding: space.md, borderRadius: radius, gap: 4 },
-  tipTitle: { fontSize: 16, fontWeight: '700', color: colors.red },
   titleRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: space.sm },
   actions: { flexDirection: 'row', gap: space.sm },
   saveBtn: { minHeight: 52, minWidth: 100, borderRadius: radius, borderWidth: 2, borderColor: colors.blue, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.md },
   saveText: { fontSize: 18, fontWeight: '700', color: colors.blue },
   apply: { backgroundColor: colors.blue, minHeight: 52, borderRadius: radius, alignItems: 'center', justifyContent: 'center' },
   applyText: { color: colors.white, fontSize: 18, fontWeight: '700' },
+  checkBtn: { minHeight: 52, borderRadius: radius, borderWidth: 2, borderColor: colors.red, justifyContent: 'center', paddingHorizontal: space.md },
+  checkText: { fontSize: 18, fontWeight: '700', color: colors.red },
   credit: { ...type.small, color: colors.blue, textDecorationLine: 'underline', textAlign: 'center', paddingVertical: space.md },
 });
