@@ -7,7 +7,7 @@ import { colors, radius, space, type } from '../theme';
 export type Part = { score: number | null; note: string };
 export type Odds = 'interview' | 'hire' | 'promotion_1yr' | 'retain_12' | 'retain_18' | 'retain_24';
 export type Card = {
-  id: string; overall: number | null; parts: Record<string, Part>; explanation?: string; improve?: string;
+  id: string; overall: number | null; parts: Record<string, Part>; explanation?: string; improve?: string; basis?: string;
   predictions: Partial<Record<Odds, number>>;
 };
 
@@ -54,6 +54,7 @@ export function ScoreDetails({ card }: { card: Card }) {
       <Text style={styles.sub} role="heading" aria-level={3}>All your chances (estimates)</Text>
       {ODDS.map(([k, label]) => <Bar key={k} label={label} value={card.predictions[k]} />)}
       {card.explanation ? <Text style={type.small}>{card.explanation}</Text> : null}
+      {card.basis ? <Text style={styles.note}>{card.basis}</Text> : null}
       {card.improve ? (
         <View style={styles.tip}>
           <Text style={styles.tipTitle}>Best next step to raise your chances</Text>
@@ -68,7 +69,7 @@ export function ScoreDetails({ card }: { card: Card }) {
         </View>
       ))}
       <Text style={styles.note}>
-        Estimates use your fit and typical hiring and turnover patterns for this kind of job. They are not guarantees.
+        Estimates use fixed rules: typical U.S. hiring and turnover patterns for this kind of job (from Bureau of Labor Statistics data), adjusted for your fit. The same job always gets the same estimate. They are not guarantees.
       </Text>
     </View>
   );
