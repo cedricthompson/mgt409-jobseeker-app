@@ -10,6 +10,7 @@ import { jobFacts } from "./fairness.js";
 import { recall, remember } from "../memo.js";
 import { createHash } from "node:crypto";
 import { candidates, occupation } from "../onet.js";
+import { totalYears } from "../experience.js";
 
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 const CLEARANCE = ["none", "public trust", "secret", "top secret", "ts/sci"];
@@ -52,7 +53,7 @@ function credentialScore(job, p) {
 }
 
 function experienceScore(job, p) {
-  const have = (p.experience || []).reduce((s, e) => s + (Number(e.years) || 0), 0);
+  const have = totalYears(p.experience);
   const need = job.experience_years;
   if (need == null) return { score: null, note: `You have about ${have} years of experience; requirement not listed.` };
   return { score: need === 0 ? 100 : clamp((have / need) * 100), note: `You have about ${have} years; the job asks for ${need}.` };

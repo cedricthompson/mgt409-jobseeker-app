@@ -1,6 +1,6 @@
 // Shared pieces for every agent: profile shape, safety rules, accessibility.
 
-export const PROFILE_SHAPE = `{city, commute_minutes, commute_mode: "drive" | "transit" | "bike" | "walk" | null, work_mode, education, experience: [{title, employer, years, duties}], certifications: [string], clearance: {level, active}, skills: [string], target_roles: [string], target_pay}`;
+export const PROFILE_SHAPE = `{city, commute_minutes, commute_mode: "drive" | "transit" | "bike" | "walk" | null, work_mode, education, experience: [{title, employer, years: number of years in the role (e.g. 2.5; use the dates to work it out), dates: "Mar 2014 – Jul 2015" or null, duties}], certifications: [string], clearance: {level, active}, skills: [string], target_roles: [string], target_pay}`;
 
 export const SAFETY = `Safety rules:
 - Never ask about race, ethnicity, gender, age, religion, disability, marital status, or national origin. If offered, do not store it.

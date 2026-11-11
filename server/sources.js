@@ -3,6 +3,7 @@
 // Every source returns jobs in the same shape as data/sample-jobs.json.
 import "./env.js";
 import { geocode, metroFor } from "./geo.js";
+import { totalYears } from "./experience.js";
 
 const LIMIT = 8;
 
@@ -49,7 +50,8 @@ export const isEntryLevel = (p) => {
   const jobs = p.experience || [];
   if (!jobs.length) return true;
   // Jobs listed without years don't count as "starting out"; only a known total under a year does.
-  return jobs.every((e) => e.years != null && e.years !== "") && jobs.reduce((s, e) => s + (Number(e.years) || 0), 0) < 1;
+  // totalYears reads date ranges like "March 2014–July 2015" too (Number() of those was 0).
+  return jobs.every((e) => e.years != null && e.years !== "") && totalYears(jobs) < 1;
 };
 const ENTRY_SEARCHES = ["fast food crew member", "hiring immediately no experience"];
 
