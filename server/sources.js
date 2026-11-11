@@ -10,16 +10,25 @@ const LIMIT = 8;
 // which keeps us well under each source's free daily limit. Kept in memory only (URLs can contain keys), never written to disk.
 const SEARCH_TTL = 3600e3;
 const searchCache = new Map();
-async function getJson(url, options = {}) {
+async function getJson(url, options = {}, ms = 6000) {
   const hit = searchCache.get(url);
   if (hit && Date.now() - hit.at < SEARCH_TTL) return hit.data;
-  const res = await fetch(url, { ...options, signal: timeout() });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const res = await fetch(url, { ...options, signal: AbortSignal.timeout(ms) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`);
   const data = await res.json();
   searchCache.set(url, { at: Date.now(), data });
   return data;
 }
 const timeout = () => AbortSignal.timeout(6000);
+
+// What each source did last time (shown by /api/health so a missing key or failing source is easy to spot).
+// Only yes/no, counts, and error messages; never keys.
+export const sourceStatus = {};
+const note = (name, result, error) => { sourceStatus[name] = { at: new Date().toISOString(), jobs: result, error: error || null }; };
+export function sourcesConfigured() {
+  const e = process.env;
+  return { usajobs: !!(e.USAJOBS_API_KEY && e.USAJOBS_EMAIL), adzuna: !!(e.ADZUNA_APP_ID && e.ADZUNA_APP_KEY), jsearch: !!e.JSEARCH_API_KEY, remotive: true };
+}
 const firstRole = (p) => (p.target_roles || [])[0] || (p.experience || [])[0]?.title || "";
 const wantsRemote = (p) => /remote|any|hybrid|open/i.test(p.work_mode || "");
 
@@ -106,9 +115,12 @@ export async function jsearch(p) {
     radius: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
   });
   try {
-    const { data = [] } = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}`, {
+    // JSearch is slower than the others (it searches Google live), so it gets more time.
+    const res = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}`, {
       headers: { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" },
-    });
+    }, 20000);
+    const data = res.data || [];
+    note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
     return data.slice(0, 12).map((j) => {
       const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";
       const toYear = (n) => (n ? Math.round(hourly ? n * 2080 : n) : null);
@@ -121,7 +133,8 @@ export async function jsearch(p) {
         source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
       };
     });
-  } catch {
+  } catch (err) {
+    note("jsearch", 0, err.message);
     return [];
   }
 }

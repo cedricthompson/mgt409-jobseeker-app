@@ -11,6 +11,7 @@ import { profileChat } from "./agents/orchestrator.js";
 import { matchJobs } from "./agents/matcher.js";
 import { scorecard } from "./agents/scorecard.js";
 import { coach } from "./agents/coach.js";
+import { sourceStatus, sourcesConfigured } from "./sources.js";
 
 const PORT = process.env.PORT || 3001;
 const WEB_DIR = resolve(repoRoot, "app", "dist"); // built by `npm run build`
@@ -47,7 +48,7 @@ async function readJson(req) {
 }
 
 const routes = {
-  "GET /api/health": async () => ({ ok: true }),
+  "GET /api/health": async () => ({ ok: true, sources: sourcesConfigured(), last: sourceStatus }),
   "GET /api/usage": async () => usage,
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
