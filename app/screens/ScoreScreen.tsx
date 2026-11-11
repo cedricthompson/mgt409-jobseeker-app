@@ -1,57 +1,10 @@
 // The Predictability Scorecard page: a full sample scorecard, so people see what they'll get before starting.
-// The sample numbers come from the app's real rules (server/agents/scorecard.js) for this example applicant:
-// fit parts skills 78, credentials 60, experience 100, pay 90, commute 70 -> overall 77; food service, mid level,
-// medium competition -> interview 46%, hired 28%, promoted 18%, still there 54% / 44% / 37% at 12 / 18 / 24 months.
+// The sample data lives in sampleScorecard.ts (shared with the mini scorecard on the opening page).
 import { Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
 import { colors, space, type, themed } from '../theme';
 import Wordmark from '../components/Wordmark';
-
-type Color = 'blue' | 'green' | 'orange' | 'purple' | 'teal' | 'red';
-
-const CHANCES: { label: string; value: number; color: Color; icon: string; note: string }[] = [
-  { label: 'Get an interview', value: 46, color: 'blue', icon: '📞', note: 'About 1 in 2. Most applicants for this kind of job hear back less often.' },
-  { label: 'Get hired', value: 28, color: 'green', icon: '🤝', note: 'Your odds of an offer, counting the interview step.' },
-  { label: 'Promoted within a year', value: 18, color: 'orange', icon: '📈', note: 'Kitchen roles promote from within more than most.' },
-  { label: 'Still there after 1 year', value: 54, color: 'purple', icon: '📅', note: 'Above average for food service, where about half of new hires stay a year.' },
-];
-
-const STAY = [{ label: '12 months', value: 54 }, { label: '18 months', value: 44 }, { label: '24 months', value: 37 }];
-
-const FIT: { label: string; icon: string; weight: number; score: number; color: Color; note: string }[] = [
-  { label: 'Skills', icon: '🧰', weight: 30, score: 78, color: 'teal', note: 'Grill, prep, and training new hires match the job. Ordering and inventory would be new to you.' },
-  { label: 'Credentials', icon: '🎓', weight: 25, score: 60, color: 'purple', note: 'You have ServSafe Food Handler. The job asks for ServSafe Manager.' },
-  { label: 'Experience', icon: '⏱️', weight: 15, score: 100, color: 'orange', note: 'You have 3 years. The job asks for 2.' },
-  { label: 'Pay', icon: '💵', weight: 15, score: 90, color: 'green', note: 'Pays about $47,500. Your target is $50,000.' },
-  { label: 'Commute', icon: '🚌', weight: 15, score: 70, color: 'blue', note: 'About 39 minutes each way by bus. Your limit is 30.' },
-];
-
-const OVERALL = 77;
-
-function Ring({ value, size = 150 }: { value: number; size?: number }) {
-  const stroke = 14, r = (size - stroke) / 2, c = 2 * Math.PI * r;
-  const color = value >= 70 ? colors.green : value >= 50 ? colors.orange : colors.red;
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
-      accessible accessibilityRole="image" accessibilityLabel={`Overall Predictability Score ${value} out of 100`}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.line} strokeWidth={stroke} fill="none" />
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round"
-          strokeDasharray={`${(c * value) / 100} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
-      </Svg>
-      <Text style={styles.ringNum}>{value}</Text>
-      <Text style={styles.ringOf}>out of 100</Text>
-    </View>
-  );
-}
-
-function Meter({ value, color }: { value: number; color: string }) {
-  return (
-    <View style={styles.track}>
-      <View style={[styles.fill, { width: `${value}%`, backgroundColor: color }]} />
-    </View>
-  );
-}
+import { Meter, Ring } from '../components/ScoreRing';
+import { CHANCES, FIT, OVERALL, SAMPLE_JOB, STAY } from '../sampleScorecard';
 
 export default function ScoreScreen({ onBack, onStart, onCheckJob }: {
   onBack: () => void; onStart: () => void; onCheckJob: () => void;
@@ -87,9 +40,9 @@ export default function ScoreScreen({ onBack, onStart, onCheckJob }: {
 
           <View style={[styles.header, { flexDirection: wide ? 'row' : 'column' }]}>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={styles.jobTitle}>Kitchen Manager</Text>
-              <Text style={type.small}>Riverside Grill (sample) · Columbus, OH · $47,500 a year</Text>
-              <Text style={type.small}>For Maria: 3 years as a line cook, ServSafe Food Handler, wants to lead a kitchen.</Text>
+              <Text style={styles.jobTitle}>{SAMPLE_JOB.title}</Text>
+              <Text style={type.small}>{SAMPLE_JOB.where}</Text>
+              <Text style={type.small}>{SAMPLE_JOB.who}</Text>
               <View style={styles.verdict}>
                 <Text style={[styles.verdictText, { color: colors.green }]}>✓ Worth applying</Text>
               </View>
@@ -200,8 +153,6 @@ const styles = themed(() => ({
   jobTitle: { fontSize: 28, lineHeight: 34, fontWeight: '800', color: colors.ink },
   verdict: { alignSelf: 'flex-start', marginTop: space.sm, borderRadius: 999, borderWidth: 2, borderColor: colors.green, paddingHorizontal: 14, paddingVertical: 6 },
   verdictText: { fontSize: 18, fontWeight: '800' },
-  ringNum: { fontSize: 46, lineHeight: 50, fontWeight: '900', color: colors.ink },
-  ringOf: { fontSize: 13, color: colors.muted },
   ringLabel: { fontSize: 15, fontWeight: '800', color: colors.ink },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   tile: { backgroundColor: colors.tint, borderRadius: 16, borderTopWidth: 6, padding: space.md, gap: 4 },
@@ -212,8 +163,6 @@ const styles = themed(() => ({
   stayRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   stayLabel: { width: 90, fontSize: 16, color: colors.ink },
   stayValue: { width: 48, textAlign: 'right', fontSize: 17, fontWeight: '800' },
-  track: { height: 12, borderRadius: 6, backgroundColor: colors.line, overflow: 'hidden' },
-  fill: { height: 12, borderRadius: 6 },
   area: { borderLeftWidth: 6, borderRadius: 12, backgroundColor: colors.tint, padding: space.md, gap: space.sm },
   areaTop: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
   areaIcon: { fontSize: 22, lineHeight: 28 },

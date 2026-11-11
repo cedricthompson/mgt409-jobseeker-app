@@ -3,11 +3,12 @@
 // "Save to PDF" and then the same PDF upload as a resume.
 export type StartMethod = 'resume' | 'linkedin' | 'photo' | 'speak';
 
-export const START_METHODS: { key: StartMethod; icon: string; title: string; hint: string }[] = [
-  { key: 'resume', icon: '📄', title: 'Upload your resume', hint: 'A PDF from your computer or phone.' },
-  { key: 'linkedin', icon: '🔗', title: 'Use your LinkedIn', hint: 'Save your profile as a PDF in two clicks, then upload it.' },
-  { key: 'photo', icon: '📷', title: 'Snap a photo', hint: 'Take a picture of a printed resume.' },
-  { key: 'speak', icon: '🎤', title: 'Tell us out loud', hint: 'No resume? Just talk about your work and goals.' },
+// Each start card has its own accent color from the theme, so the four choices stand out from the page.
+export const START_METHODS: { key: StartMethod; icon: string; title: string; hint: string; color: 'blue' | 'teal' | 'orange' | 'purple' }[] = [
+  { key: 'resume', icon: '📄', title: 'Upload your resume', hint: 'A PDF from your computer or phone.', color: 'blue' },
+  { key: 'linkedin', icon: '🔗', title: 'Use your LinkedIn', hint: 'Save your profile as a PDF in two clicks, then upload it.', color: 'teal' },
+  { key: 'photo', icon: '📷', title: 'Snap a photo', hint: 'Take a picture of a printed resume.', color: 'orange' },
+  { key: 'speak', icon: '🎤', title: 'Tell us out loud', hint: 'No resume? Just talk about your work and goals.', color: 'purple' },
 ];
 
 export const LINKEDIN_STEPS = [

@@ -6,6 +6,7 @@ import { APP_NAME, APP_TAGLINE } from '../brand';
 import Wordmark from '../components/Wordmark';
 import { START_METHODS, StartMethod } from '../start';
 import { PROMO_MINUTES } from '../components/Promo';
+import MiniScorecard from '../components/MiniScorecard';
 
 // Photos of job seekers for the opening page. Each needs alt text for screen readers.
 // Sources are listed in assets/people/CREDITS.md.
@@ -13,12 +14,6 @@ const PHOTOS: { source: number; alt: string }[] = [
   { source: require('../assets/people/food-service.jpg'), alt: 'A woman in an apron and gloves cooking at a food counter' },
   { source: require('../assets/people/construction.jpg'), alt: 'A construction worker in a yellow hard hat taking a break on site' },
   { source: require('../assets/people/office.jpg'), alt: 'A man working on a laptop at his desk' },
-];
-
-// Example Predictability Scores shown in the hero, so people see what they'll get before starting.
-const EXAMPLES = [
-  { title: 'Kitchen Manager', where: 'Columbus, OH · $47.5K', score: 77, verdict: 'Worth applying', note: 'Good fit: 3 years leading the grill line. 46% chance of an interview.' },
-  { title: 'Restaurant General Manager', where: 'Columbus, OH · $68K', score: 38, verdict: 'Long shot for now', note: 'Most hires have 5+ years managing budgets' },
 ];
 
 // Stories: written examples until real video testimonials are recorded.
@@ -45,7 +40,8 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
   // Step cards: five across on wide screens, three then two on tablets, one per row on phones.
   const { width } = useWindowDimensions();
   const stepWidth = width >= 1100 ? '18.4%' : width >= 640 ? '31%' : '100%';
-  const startWidth = width >= 1100 ? '23.5%' : width >= 520 ? '48%' : '100%';
+  const startWidth = width >= 1100 ? '23%' : width >= 520 ? '47%' : '100%';
+  const wideHero = width >= 900;
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.page}>
@@ -72,65 +68,63 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
           </View>
         </View>
 
-        {/* Hero */}
-        <View style={styles.section}>
-          <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()} · FREE FROM CHART ACADEMY</Text>
-          <Text style={styles.hero} role="heading" aria-level={1}>
-            Let us help you <Text style={{ color: colors.red }}>predict your future.</Text>
-          </Text>
-          <Text style={styles.lead}>
-            <Text style={styles.bold}>Know which jobs are worth your time.</Text> Every job we find gets a{' '}
-            <Text style={styles.bold}>Predictability Score</Text> from 0 to 100 that estimates your chances of an
-            interview and an offer. Spend your time on the jobs you're likely to land, and skip the ones that won't call back.
-          </Text>
-          <Text style={styles.h3} role="heading" aria-level={2}>Four ways to start your future</Text>
-          <View style={styles.startGrid}>
-            {START_METHODS.map((m) => (
-              <Pressable
-                key={m.key}
-                onPress={() => onStart(m.key)}
-                style={({ pressed }) => [styles.startCard, { width: startWidth }, pressed && { borderColor: colors.blue, backgroundColor: colors.tint }]}
-                accessibilityRole="button" accessibilityLabel={m.title} accessibilityHint={m.hint}
-              >
-                <Text style={styles.startIcon} accessibilityElementsHidden importantForAccessibility="no">{m.icon}</Text>
-                <Text style={styles.startTitle}>{m.title}</Text>
-                <Text style={type.small}>{m.hint}</Text>
-                <Text style={styles.startGo} accessibilityElementsHidden importantForAccessibility="no">Start →</Text>
-              </Pressable>
-            ))}
+        {/* Hero: the promise on the left, a miniature sample scorecard on the right (stacked on phones) */}
+        <View style={[styles.heroRow, { flexDirection: wideHero ? 'row' : 'column' }]}>
+          <View style={[styles.section, wideHero && { flex: 1.3 }]}>
+            <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()} · FREE FROM CHART ACADEMY</Text>
+            <Text style={styles.hero} role="heading" aria-level={1}>
+              Let us help you <Text style={{ color: colors.red }}>predict your future.</Text>
+            </Text>
+            <Text style={styles.lead}>
+              <Text style={styles.bold}>Know which jobs are worth your time.</Text> Every job we find gets a{' '}
+              <Text style={styles.bold}>Predictability Score</Text> from 0 to 100 that estimates your chances of an
+              interview and an offer. Spend your time on the jobs you're likely to land, and skip the ones that won't call back.
+            </Text>
           </View>
-          <Text style={type.small}>Takes about {PROMO_MINUTES} minutes. No account needed.{' '}
-            <Text style={styles.inlineLink} onPress={onTracker} accessibilityRole="link">See my applications</Text>
-          </Text>
-          <Pressable onPress={onCheckJob} accessibilityRole="button" accessibilityLabel="Check a job you found" style={styles.textLink}>
-            <Text style={styles.textLinkText}>Found a job on Indeed or LinkedIn? Check your chances →</Text>
-          </Pressable>
+          <View style={wideHero ? { flex: 1, maxWidth: 400 } : { width: '100%', maxWidth: 440, alignSelf: 'center' }}>
+            <MiniScorecard onOpen={onScorecard} />
+          </View>
         </View>
 
-        {/* Example scores */}
-        <View style={styles.scorePanel} accessibilityLabel="Example Predictability Scores">
-          <Text style={styles.panelLabel}>EXAMPLE</Text>
-          {EXAMPLES.map((e) => {
-            const good = e.score >= 70;
-            return (
-              <View key={e.title} style={styles.scoreCard}
-                accessible accessibilityLabel={`${e.title}, ${e.where}. Predictability Score ${e.score} out of 100. ${e.verdict}. ${e.note}.`}>
-                <View style={[styles.scoreBadge, { borderColor: good ? colors.blue : colors.line }]}>
-                  <Text style={[styles.scoreNum, { color: good ? colors.blue : colors.muted }]}>{e.score}</Text>
-                  <Text style={styles.scoreOf}>/100</Text>
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={styles.cardTitle}>{e.title}</Text>
-                  <Text style={type.small}>{e.where}</Text>
-                  <Text style={[styles.verdict, { color: good ? colors.blue : colors.red }]}>{good ? '✓ ' : '✕ '}{e.verdict}</Text>
-                  <Text style={type.small}>{e.note}</Text>
-                </View>
-              </View>
-            );
-          })}
-          <Pressable onPress={onScorecard} accessibilityRole="button" accessibilityLabel="See a full sample scorecard" style={styles.textLink}>
-            <Text style={styles.textLinkText}>See a full sample scorecard →</Text>
-          </Pressable>
+        {/* Four ways to start: their own bordered box, centered, with thick colored borders on each choice */}
+        <View style={styles.startBox}>
+          <Text style={styles.startBoxTitle} role="heading" aria-level={2}>Four ways to start your future</Text>
+          <Text style={[type.small, { textAlign: 'center' }]}>
+            Pick whichever is easiest for you. It takes about {PROMO_MINUTES} minutes, and no account is needed.
+          </Text>
+          <View style={styles.startGrid}>
+            {START_METHODS.map((m) => {
+              const accent = colors[m.color];
+              return (
+                <Pressable
+                  key={m.key}
+                  onPress={() => onStart(m.key)}
+                  // A light wash of the card's color (8%, deeper when hovered or pressed) inside a thick colored border.
+                  style={(state) => {
+                    const active = state.pressed || (state as { hovered?: boolean }).hovered;
+                    return [styles.startCard, { width: startWidth, borderColor: accent, backgroundColor: `${accent}${active ? '29' : '14'}` },
+                      active && { transform: [{ translateY: -2 }] }];
+                  }}
+                  accessibilityRole="button" accessibilityLabel={m.title} accessibilityHint={m.hint}
+                >
+                  <View style={[styles.startIconWrap, { backgroundColor: accent }]} accessibilityElementsHidden importantForAccessibility="no">
+                    <Text style={styles.startIcon}>{m.icon}</Text>
+                  </View>
+                  <Text style={styles.startTitle}>{m.title}</Text>
+                  <Text style={type.small}>{m.hint}</Text>
+                  <Text style={[styles.startGo, { color: accent }]} accessibilityElementsHidden importantForAccessibility="no">Start →</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={styles.startLinks}>
+            <Pressable onPress={onCheckJob} accessibilityRole="button" accessibilityLabel="Check a job you found" style={styles.textLink}>
+              <Text style={styles.textLinkText}>Found a job on Indeed or LinkedIn? Check your chances →</Text>
+            </Pressable>
+            <Pressable onPress={onTracker} accessibilityRole="button" accessibilityLabel="My applications" style={styles.textLink}>
+              <Text style={styles.textLinkText}>See my applications</Text>
+            </Pressable>
+          </View>
         </View>
 
         {PHOTOS.length > 0 && (
@@ -198,10 +192,10 @@ const styles = themed(() => {
   return {
   safe: { flex: 1, backgroundColor: colors.bg },
   page: { padding: space.lg, gap: space.xl, maxWidth: 1120, width: '100%', alignSelf: 'center' },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  topBar: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', rowGap: space.xs },
   brand: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   brandIcon: { width: 44, height: 44 },
-  topLinks: { flexDirection: 'row', gap: space.sm },
+  topLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, marginLeft: -space.sm },
   textLink: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   textLinkText: { fontSize: 18, fontWeight: '700', color: colors.blue, textDecorationLine: 'underline' },
   topLink: { minHeight: 48, justifyContent: 'center', paddingHorizontal: space.sm },
@@ -216,25 +210,21 @@ const styles = themed(() => {
   ctaText: { color: colors.onAccent, fontSize: 20, fontWeight: '700' },
   ctaSecondary: { borderWidth: 2, borderColor: colors.blue, minHeight: 56, borderRadius: 999, paddingHorizontal: 28, alignItems: 'center', justifyContent: 'center' },
   ctaSecondaryText: { color: colors.blue, fontSize: 20, fontWeight: '700' },
-  scorePanel: { backgroundColor: colors.tint, borderRadius: 24, padding: space.lg, gap: space.md },
-  panelLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 1.2, color: colors.muted },
-  scoreCard: { ...card, flexDirection: 'row', gap: space.md, alignItems: 'center',
-    shadowColor: '#1A1A1A', shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-  scoreBadge: { width: 84, height: 84, borderRadius: 42, borderWidth: 4, alignItems: 'center', justifyContent: 'center' },
-  scoreNum: { fontSize: 30, fontWeight: '800', lineHeight: 34 },
-  scoreOf: { fontSize: 13, color: colors.muted },
-  cardTitle: { fontSize: 19, fontWeight: '700', color: colors.ink },
-  verdict: { fontSize: 17, fontWeight: '700' },
   photoGrid: { flexDirection: 'row', gap: space.sm },
   photo: { flex: 1, height: 190, borderRadius: 16 },
   h2: { fontSize: 30, lineHeight: 36, fontWeight: '800', color: colors.ink, letterSpacing: -0.3 },
-  h3: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: colors.ink, marginTop: space.sm },
-  startGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
-  startCard: { ...card, borderWidth: 2, gap: 6, minHeight: 160, shadowColor: '#1A1A1A', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
-  startIcon: { fontSize: 30, lineHeight: 38 },
+  heroRow: { gap: space.xl, alignItems: 'center' },
+  startBox: { borderWidth: 2, borderColor: colors.line, borderRadius: 28, backgroundColor: colors.surface, padding: space.lg, gap: space.md,
+    alignItems: 'center', shadowColor: '#1A1A1A', shadowOpacity: 0.06, shadowRadius: 18, shadowOffset: { width: 0, height: 6 } },
+  startBoxTitle: { fontSize: 30, lineHeight: 36, fontWeight: '800', color: colors.ink, textAlign: 'center', letterSpacing: -0.3 },
+  startLinks: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: space.lg },
+  startGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, justifyContent: 'center', width: '100%' },
+  startCard: { ...card, borderWidth: 5, borderRadius: 20, gap: 8, minHeight: 190, padding: space.lg,
+    shadowColor: '#1A1A1A', shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+  startIconWrap: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  startIcon: { fontSize: 26, lineHeight: 32 },
   startTitle: { fontSize: 19, lineHeight: 24, fontWeight: '800', color: colors.ink },
-  startGo: { fontSize: 16, fontWeight: '800', color: colors.blue, marginTop: 'auto' },
-  inlineLink: { color: colors.blue, fontWeight: '700', textDecorationLine: 'underline' },
+  startGo: { fontSize: 17, fontWeight: '800', marginTop: 'auto' },
   stepGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, justifyContent: 'center' },
   stepCard: { ...card, alignItems: 'center', gap: space.sm, paddingVertical: space.lg },
   stepNum: { fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.red, textTransform: 'uppercase' },
