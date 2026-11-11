@@ -128,12 +128,30 @@ Pay is yearly in U.S. dollars (hourly x 2080). "experience_years" is the minimum
 "skills" lists up to 8 main skills. "summary" is 2 plain sentences on what the job is. Use null or [] when the posting doesn't say.
 If the text is not a job posting (a login page, an error, a list of many jobs), set "is_job_posting" to false.`;
 
+// Friendly names for the sites people paste links from most.
+const SITES = { "indeed.com": "Indeed", "linkedin.com": "LinkedIn", "usajobs.gov": "USAJobs", "glassdoor.com": "Glassdoor",
+  "ziprecruiter.com": "ZipRecruiter", "monster.com": "Monster", "simplyhired.com": "SimplyHired" };
+function siteName(href) {
+  const host = new URL(href).hostname.replace(/^www\./, "");
+  const known = Object.keys(SITES).find((d) => host === d || host.endsWith(`.${d}`));
+  return known ? SITES[known] : host;
+}
+// A link that came with pasted text is kept only as a reference (never opened), so it just has to be a web link.
+function plainLink(url) {
+  try { const u = new URL(String(url).trim()); return /^https?:$/.test(u.protocol) ? u.href : null; } catch { return null; }
+}
+
 export async function readJob({ url, text, session }) {
   let facts = {}, source = "Pasted job description", link = null;
-  if (url && !text) {
+  if (url && text) {
+    // Sites like Indeed and LinkedIn block apps, so the applicant pastes the description and the link together.
+    // We read the pasted text and keep the link, so "Open the posting" and the tracker point back to the job.
+    link = plainLink(url);
+    if (link) source = `${siteName(link)} (pasted description)`;
+  } else if (url) {
     const { html, finalUrl } = await fetchPage(String(url).trim());
     link = finalUrl;
-    source = `Your link (${new URL(finalUrl).hostname.replace(/^www\./, "")})`;
+    source = siteName(finalUrl);
     const jp = findJobPosting(html);
     if (jp) { facts = postingFacts(jp); text = facts.text; }
     else text = toText(html.match(/<body[\s\S]*<\/body>/i)?.[0] || html);

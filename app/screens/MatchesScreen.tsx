@@ -4,6 +4,7 @@ import { post, Prefs, Profile } from '../api';
 import { colors, radius, space, type } from '../theme';
 import { useTracker } from '../tracker';
 import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
+import SearchElsewhere from '../components/SearchElsewhere';
 
 type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
@@ -156,6 +157,8 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
             </View>
           );
         })}
+
+        {!step && <SearchElsewhere profile={profile} />}
 
         {matches.some((m) => m.job.source === 'Adzuna') && (
           <Pressable onPress={() => Linking.openURL('https://www.adzuna.com')} accessibilityRole="link" accessibilityLabel="Jobs by Adzuna">

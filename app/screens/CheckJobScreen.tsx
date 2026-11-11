@@ -6,6 +6,7 @@ import { post, Prefs, Profile } from '../api';
 import { colors, radius, space, type } from '../theme';
 import { useTracker } from '../tracker';
 import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
+import SearchElsewhere from '../components/SearchElsewhere';
 
 type Job = { id: string; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; url?: string; source?: string; summary?: string };
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
@@ -27,8 +28,8 @@ export default function CheckJobScreen({ profile, prefs, onBack, onTracker, onBu
   async function check() {
     setLoading(true); setError(''); setResult(null);
     try {
-      // Pasted text wins: it is used when the site blocked us, or when the applicant has no link.
-      const body = text.trim() ? { text: text.trim() } : { url: link.trim() };
+      // Pasted text is what gets read (sites like Indeed block apps); the link is kept so the posting can be reopened.
+      const body = { ...(link.trim() && { url: link.trim() }), ...(text.trim() && { text: text.trim() }) };
       setResult(await post<{ job: Job; card: Card }>('/api/check-job', { ...body, profile, prefs }));
     } catch (e) {
       const msg = (e as Error).message;
@@ -61,6 +62,7 @@ export default function CheckJobScreen({ profile, prefs, onBack, onTracker, onBu
           </View>
         ) : (
           <>
+            <SearchElsewhere profile={profile} note="Looking for jobs? Search Indeed or LinkedIn, then come back and check any job you like:" />
             <Text style={styles.label} nativeID="linkLabel">Link to the job</Text>
             <TextInput
               value={link}
@@ -76,7 +78,7 @@ export default function CheckJobScreen({ profile, prefs, onBack, onTracker, onBu
               onSubmitEditing={() => ready && check()}
             />
             <Text style={styles.label} nativeID="textLabel">Or paste the job description</Text>
-            <Text style={type.small}>Some sites, like Indeed and LinkedIn, don't let apps open their pages. For those, copy the description and paste it here.</Text>
+            <Text style={type.small}>For Indeed and LinkedIn jobs, paste the link above and the description here: those sites don't let apps open their pages, so we read what you paste and keep the link for you.</Text>
             <TextInput
               ref={pasteBox}
               value={text}
