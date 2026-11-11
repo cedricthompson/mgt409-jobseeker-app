@@ -16,6 +16,7 @@ import { accountsEnabled, deleteMine, getMine, saveMine, signIn, signOut, signUp
 import { prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
 
 const PORT = process.env.PORT || 3001;
+const STARTED = new Date().toISOString(); // shown by /api/health, to confirm a restart picked up new settings
 const WEB_DIR = resolve(repoRoot, "app", "dist"); // built by `npm run build`
 const MAX_BODY = 8 * 1024 * 1024; // 8 MB: room for a resume photo or PDF
 
@@ -51,7 +52,8 @@ async function readJson(req) {
 }
 
 const routes = {
-  "GET /api/health": async () => ({ ok: true, accounts: accountsEnabled(), sources: sourcesConfigured(), last: sourceStatus }),
+  "GET /api/health": async () => ({ ok: true, started: STARTED, version: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 7),
+    database: process.env.DATABASE_URL ? "set" : "missing", accounts: accountsEnabled(), sources: sourcesConfigured(), last: sourceStatus }),
   "GET /api/usage": async () => usage,
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
