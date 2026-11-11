@@ -30,7 +30,8 @@ If the applicant is starting out (little or no work history), rank entry-level j
 jobs that require years of experience or a degree they don't have.
 ${SAFETY}
 Reply ONLY with JSON: {"matches": [{"id": string, "fit": "strong" | "good" | "stretch", "why": string, "gaps": [string]}]}
-Return up to 10 matches, best first. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
+Return 6 to 10 matches, best first, whenever at least 6 jobs are reasonable or stretch fits; return fewer only when fewer fit.
+Never list the same job twice. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
 
 const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.city, mode: j.work_mode,
   pay: j.pay_min ? `${j.pay_min}-${j.pay_max}` : j.pay_text, exp_years: j.experience_years,
@@ -52,6 +53,8 @@ export async function matchJobs({ profile = {}, session, prefs }) {
     ],
     { json: true, agent: "matcher", session, effort: "low" }
   );
-  const { matches = [] } = JSON.parse(text);
-  return { considered: jobs.length, data: live.local.length ? "live" : "sample", matches: matches.filter((m) => byId[m.id]).map((m) => ({ ...m, job: byId[m.id] })) };
+  // One entry per job, even if the model repeats one.
+  const seen = new Set();
+  const matches = (JSON.parse(text).matches || []).filter((m) => byId[m.id] && !seen.has(m.id) && seen.add(m.id));
+  return { considered: jobs.length, data: live.local.length ? "live" : "sample", matches: matches.map((m) => ({ ...m, job: byId[m.id] })) };
 }
