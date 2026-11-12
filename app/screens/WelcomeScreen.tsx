@@ -1,4 +1,5 @@
-import { Image, Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Image, Platform, Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { colors, radius, space, type, themed } from '../theme';
 import { coachFor } from '../team';
 import Avatar from '../components/Avatar';
@@ -33,7 +34,41 @@ const STEPS = [
   { coach: 'coach', title: 'Apply with confidence', text: 'A tailored resume, cover letter, and follow-ups for the jobs worth your time.' },
 ];
 
-export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorecard, onMatches, onAccount, accountEmail, onSettings }: {
+// The headline types itself out quickly, like a typewriter. The rest of the line is already there but invisible,
+// so nothing below it jumps while it types. Screen readers hear the whole line at once.
+const HEADLINE = ['Let us help you ', 'predict your future.'] as const;
+function TypedHeadline({ animate }: { animate: boolean }) {
+  const full = HEADLINE.join('');
+  const [n, setN] = useState(animate ? 0 : full.length);
+  useEffect(() => {
+    if (!animate) { setN(full.length); return; }
+    const id = setInterval(() => setN((k) => (k >= full.length ? k : k + 1)), 32); // about one second in all
+    return () => clearInterval(id);
+  }, [animate]);
+  const cut = HEADLINE[0].length;
+  const typing = n < full.length;
+  return (
+    <Text style={styles.hero} role="heading" aria-level={1} accessibilityLabel={full}>
+      {full.slice(0, Math.min(n, cut))}
+      <Text style={{ color: colors.red }}>{n > cut ? full.slice(cut, n) : ''}</Text>
+      {typing && <Text style={{ color: colors.blue, fontWeight: '400' }}>|</Text>}
+      {typing && <Text style={{ color: 'transparent' }}>{full.slice(n)}</Text>}
+    </Text>
+  );
+}
+
+// The sample scorecard flies in from the right as the page opens.
+function FlyIn({ animate, children }: { animate: boolean; children: React.ReactNode }) {
+  const t = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  useEffect(() => {
+    if (!animate) { t.setValue(1); return; }
+    Animated.timing(t, { toValue: 1, duration: 650, delay: 250, useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [animate]);
+  const translateX = t.interpolate({ inputRange: [0, 1], outputRange: [160, 0] });
+  return <Animated.View style={{ opacity: t, transform: [{ translateX }] }}>{children}</Animated.View>;
+}
+
+export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorecard, onMatches, onAccount, accountEmail, onSettings, reduceMotion }: {
   onStart: (method?: StartMethod) => void; onTracker: () => void; onCheckJob: () => void; onScorecard: () => void; onMatches?: () => void; onAccount?: () => void; accountEmail: string | null;
   onSettings: () => void; reduceMotion?: boolean;
 }) {
@@ -42,6 +77,10 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
   const stepWidth = width >= 1100 ? '18.4%' : width >= 640 ? '31%' : '100%';
   const startWidth = width >= 1100 ? '23%' : width >= 520 ? '47%' : '100%';
   const wideHero = width >= 900;
+  // Motion is skipped when the applicant turned on Reduce motion in Settings or on their device.
+  const [deviceReduce, setDeviceReduce] = useState(false);
+  useEffect(() => { AccessibilityInfo.isReduceMotionEnabled().then(setDeviceReduce).catch(() => {}); }, []);
+  const animate = !reduceMotion && !deviceReduce;
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.page}>
@@ -67,10 +106,8 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
         {/* Hero: the promise on the left, a miniature sample scorecard on the right (stacked on phones) */}
         <View style={[styles.heroRow, { flexDirection: wideHero ? 'row' : 'column' }]}>
           <View style={[styles.section, wideHero && { flex: 1.3 }]}>
-            <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()} · FREE FROM CHART ACADEMY</Text>
-            <Text style={styles.hero} role="heading" aria-level={1}>
-              Let us help you <Text style={{ color: colors.red }}>predict your future.</Text>
-            </Text>
+            <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()}</Text>
+            <TypedHeadline animate={animate} />
             <Text style={styles.lead}>
               <Text style={styles.bold}>Know which jobs are worth your time.</Text> Every job we find gets a{' '}
               <Text style={styles.bold}>Predictability Score</Text> from 0 to 100 that estimates your chances of an
@@ -78,7 +115,7 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
             </Text>
           </View>
           <View style={wideHero ? { flex: 1, maxWidth: 400 } : { width: '100%', maxWidth: 440, alignSelf: 'center' }}>
-            <MiniScorecard onOpen={onScorecard} />
+            <FlyIn animate={animate}><MiniScorecard onOpen={onScorecard} /></FlyIn>
           </View>
         </View>
 
@@ -201,7 +238,7 @@ const styles = themed(() => {
   topLinkText: { fontSize: 18, fontWeight: '600', color: colors.blue },
   section: { gap: space.md },
   eyebrow: { fontSize: 14, fontWeight: '800', letterSpacing: 1.2, color: colors.blue },
-  hero: { fontSize: 44, lineHeight: 50, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
+  hero: { fontSize: 48, lineHeight: 54, fontWeight: '900', color: colors.ink, letterSpacing: -1 },
   lead: { fontSize: 20, lineHeight: 30, color: colors.muted },
   bold: { fontWeight: '700', color: colors.ink },
   ctaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
