@@ -3,6 +3,7 @@
 // ScoreDetails: the full scorecard (how you fit, all six odds, the reason, and the best next step).
 import { Text, View } from 'react-native';
 import { colors, radius, space, type, themed } from '../theme';
+import FitBreakdown, { AREAS, points } from './FitBreakdown';
 
 export type Part = { score: number | null; note: string };
 export type Odds = 'interview' | 'hire' | 'promotion_1yr' | 'retain_12' | 'retain_18' | 'retain_24';
@@ -13,7 +14,6 @@ export type Card = {
   requirements?: Requirement[]; occupation?: { code: string; title: string } | null;
 };
 
-const PART_LABELS: Record<string, string> = { skills: 'Skills', credentials: 'Credentials', experience: 'Experience', pay: 'Pay', commute: 'Commute' };
 const ODDS: [Odds, string][] = [
   ['interview', 'Get an interview'], ['hire', 'Hired, if interviewed'], ['promotion_1yr', 'Promoted within 1 year'],
   ['retain_12', 'Still there at 12 months'], ['retain_18', 'Still there at 18 months'], ['retain_24', 'Still there at 24 months'],
@@ -65,12 +65,18 @@ export function ScoreDetails({ card }: { card: Card }) {
         </View>
       ) : null}
       <Text style={styles.sub} role="heading" aria-level={3}>How you fit ({card.overall ?? '–'} out of 100)</Text>
-      {Object.entries(PART_LABELS).map(([k, label]) => (
-        <View key={k} style={{ gap: 2 }}>
-          <Bar label={label} value={card.parts[k]?.score} />
-          <Text style={styles.note}>{card.parts[k]?.note}</Text>
-        </View>
-      ))}
+      {AREAS.map((a) => {
+        const score = card.parts[a.key]?.score ?? null;
+        return (
+          <View key={a.key} style={{ gap: 2 }}>
+            <Bar label={a.label} value={score} />
+            <Text style={styles.note}>
+              {card.parts[a.key]?.note} Adds {Math.round(points({ weight: a.weight, score }) * 10) / 10} of {a.weight} points{score == null ? ' (unknown counts as 50%)' : ''}.
+            </Text>
+          </View>
+        );
+      })}
+      <FitBreakdown overall={card.overall} areas={AREAS.map((a) => ({ ...a, score: card.parts[a.key]?.score ?? null }))} />
       <Text style={styles.note}>
         Estimates use fixed rules: typical U.S. hiring and turnover patterns for this kind of job (from Bureau of Labor Statistics data), adjusted for your fit. The same job always gets the same estimate. They are not guarantees.
       </Text>

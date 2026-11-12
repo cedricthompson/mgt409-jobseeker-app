@@ -4,6 +4,7 @@ import { Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } 
 import { colors, space, type, themed } from '../theme';
 import Wordmark from '../components/Wordmark';
 import { Meter, Ring } from '../components/ScoreRing';
+import FitBreakdown, { Area, points } from '../components/FitBreakdown';
 import { CHANCES, FIT, OVERALL, SAMPLE_JOB, STAY } from '../sampleScorecard';
 
 export default function ScoreScreen({ onBack, onStart, onCheckJob }: {
@@ -82,17 +83,18 @@ export default function ScoreScreen({ onBack, onStart, onCheckJob }: {
           <Text style={styles.h2} role="heading" aria-level={2}>How you fit: the five areas behind your score</Text>
           {FIT.map((f) => (
             <View key={f.label} style={[styles.area, { borderLeftColor: colors[f.color] }]}
-              accessible accessibilityLabel={`${f.label}: ${f.score} out of 100, ${f.weight} percent of your score. ${f.note}`}>
+              accessible accessibilityLabel={`${f.label}: ${f.score} percent. It counts for ${f.weight} percent of your score and adds ${points(f)} of ${f.weight} points. ${f.note}`}>
               <View style={styles.areaTop}>
                 <Text style={styles.areaIcon} accessibilityElementsHidden importantForAccessibility="no">{f.icon}</Text>
                 <Text style={styles.areaLabel}>{f.label}</Text>
-                <Text style={[styles.weight, { color: colors[f.color], borderColor: colors[f.color] }]}>{f.weight}% of score</Text>
-                <Text style={[styles.areaScore, { color: colors[f.color] }]}>{f.score}</Text>
+                <Text style={[styles.weight, { color: colors[f.color], borderColor: colors[f.color] }]}>adds {points(f)} of {f.weight} points</Text>
+                <Text style={[styles.areaScore, { color: colors[f.color] }]}>{f.score}%</Text>
               </View>
               <Meter value={f.score} color={colors[f.color]} />
               <Text style={type.small}>{f.note}</Text>
             </View>
           ))}
+          <FitBreakdown overall={OVERALL} areas={FIT.map((f) => ({ key: f.label, label: f.label, weight: f.weight, score: f.score, color: f.color as Area['color'] }))} />
 
           {/* Next step */}
           <View style={styles.next}>
@@ -108,8 +110,10 @@ export default function ScoreScreen({ onBack, onStart, onCheckJob }: {
         <View style={{ gap: space.sm }}>
           <Text style={styles.h2} role="heading" aria-level={2}>How the score works</Text>
           <Text style={type.body}>
-            <Text style={styles.bold}>Your Predictability Score</Text> (0 to 100) adds up the five areas above:
-            skills count most (30%), then credentials (25%), then experience, pay, and commute (15% each).
+            <Text style={styles.bold}>Your Predictability Score</Text> (0 to 100) adds up the five areas above. Each
+            area gets its own score from 0 to 100%, then counts for part of the total: skills 30%, credentials 25%, and
+            experience, pay, and commute 15% each. So Skills at 78% adds 78% × 30 = 23.4 points, and all five add up
+            to the score on the card.
           </Text>
           <Text style={type.body}>
             <Text style={styles.bold}>Your chances</Text> start from real U.S. hiring and turnover patterns for that

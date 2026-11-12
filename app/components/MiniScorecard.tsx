@@ -3,6 +3,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { colors, space, themed } from '../theme';
 import { Meter, Ring } from './ScoreRing';
+import FitBreakdown, { Area } from './FitBreakdown';
 import { CHANCES, FIT, OVERALL, SAMPLE_JOB } from '../sampleScorecard';
 
 const SHORT: Record<string, string> = {
@@ -41,10 +42,12 @@ export default function MiniScorecard({ onOpen }: { onOpen: () => void }) {
           <View key={f.label} style={styles.fitRow}>
             <Text style={styles.fitLabel}>{f.label}</Text>
             <View style={{ flex: 1 }}><Meter value={f.score} color={colors[f.color]} height={8} /></View>
-            <Text style={[styles.fitScore, { color: colors[f.color] }]}>{f.score}</Text>
+            <Text style={[styles.fitScore, { color: colors[f.color] }]}>{f.score}%</Text>
           </View>
         ))}
       </View>
+
+      <FitBreakdown compact overall={OVERALL} areas={FIT.map((f) => ({ key: f.label, label: f.label, weight: f.weight, score: f.score, color: f.color as Area['color'] }))} />
 
       <Text style={styles.link}>See the full scorecard →</Text>
     </Pressable>
@@ -64,6 +67,6 @@ const styles = themed(() => ({
   chanceLabel: { fontSize: 12, fontWeight: '700', color: colors.ink, textAlign: 'center' },
   fitRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   fitLabel: { width: 82, fontSize: 13, color: colors.ink },
-  fitScore: { width: 28, textAlign: 'right', fontSize: 14, fontWeight: '800' },
+  fitScore: { width: 40, textAlign: 'right', fontSize: 14, fontWeight: '800' },
   link: { fontSize: 15, fontWeight: '800', color: colors.blue },
 }));
