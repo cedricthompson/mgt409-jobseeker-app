@@ -61,7 +61,7 @@ function TypedHeadline({ animate, onDone }: { animate: boolean; onDone: () => vo
 // Three quick steps under the headline.
 const HOW_STEPS = [
   'Upload your resume.',
-  'Tell our coaches what you are looking for: the jobs, pay, and commute you want.',
+  'Tell us what you are looking for: the jobs, pay, and commute you want.',
   'Talk with our 5 coaches to get connected to the jobs worth applying to.',
 ];
 
