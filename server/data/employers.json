@@ -1,0 +1,39 @@
+{
+  "about": "Featured employers searched directly through Google for Jobs (JSearch), so their openings show up with apply links to their own careers sites. metros: the metro names in server/geo.js where they hire, or \"any\". keywords: kinds of roles they hire for, used to pick the best 2 employers for each search. To add an employer, add a line here.",
+  "employers": [
+    { "name": "CACI", "query": "CACI", "group": "DC-area contractors", "metros": ["Washington, DC", "Baltimore"],
+      "keywords": ["analyst", "engineer", "software", "cyber", "intelligence", "data", "program", "project", "manager", "operations", "it", "network", "paralegal", "legal", "hr", "logistics", "consultant", "director"] },
+    { "name": "Booz Allen Hamilton", "query": "Booz Allen Hamilton", "group": "DC-area contractors", "metros": ["Washington, DC", "Baltimore"],
+      "keywords": ["consultant", "analyst", "engineer", "data", "cyber", "program", "project", "manager", "strategy", "operations", "it", "director", "training"] },
+    { "name": "Leidos", "query": "Leidos", "group": "DC-area contractors", "metros": ["Washington, DC", "Baltimore"],
+      "keywords": ["engineer", "software", "cyber", "it", "systems", "program", "project", "manager", "analyst", "health", "logistics", "operations"] },
+    { "name": "SAIC", "query": "SAIC", "group": "DC-area contractors", "metros": ["Washington, DC"],
+      "keywords": ["engineer", "software", "cyber", "it", "systems", "program", "project", "manager", "analyst", "help desk", "network"] },
+    { "name": "General Dynamics Information Technology", "query": "GDIT General Dynamics Information Technology", "group": "DC-area contractors", "metros": ["Washington, DC", "Baltimore"],
+      "keywords": ["it", "help desk", "technician", "engineer", "network", "cyber", "program", "project", "manager", "analyst", "support"] },
+    { "name": "Deloitte", "query": "Deloitte", "group": "DC-area contractors", "metros": ["Washington, DC"],
+      "keywords": ["consultant", "analyst", "strategy", "workforce", "human capital", "program", "project", "manager", "data", "director", "change management"] },
+    { "name": "Accenture Federal Services", "query": "Accenture Federal Services", "group": "DC-area contractors", "metros": ["Washington, DC"],
+      "keywords": ["consultant", "analyst", "engineer", "data", "program", "project", "manager", "change management", "training", "it"] },
+
+    { "name": "Johns Hopkins", "query": "Johns Hopkins", "group": "Hospitals and universities", "metros": ["Baltimore", "Washington, DC"],
+      "keywords": ["nurse", "medical", "patient", "clinical", "health", "technician", "research", "coordinator", "administrative", "education", "program", "manager", "it", "facilities", "food", "security"] },
+    { "name": "MedStar Health", "query": "MedStar Health", "group": "Hospitals and universities", "metros": ["Washington, DC", "Baltimore"],
+      "keywords": ["nurse", "medical", "patient", "clinical", "health", "technician", "coordinator", "administrative", "manager", "food", "environmental", "security"] },
+    { "name": "Children's National Hospital", "query": "Children's National Hospital", "group": "Hospitals and universities", "metros": ["Washington, DC"],
+      "keywords": ["nurse", "medical", "patient", "clinical", "health", "technician", "coordinator", "administrative", "research", "manager"] },
+    { "name": "Georgetown University", "query": "Georgetown University", "group": "Hospitals and universities", "metros": ["Washington, DC"],
+      "keywords": ["education", "student", "program", "coordinator", "administrative", "research", "director", "advisor", "career", "it", "facilities", "workforce"] },
+    { "name": "George Washington University", "query": "George Washington University", "group": "Hospitals and universities", "metros": ["Washington, DC"],
+      "keywords": ["education", "student", "program", "coordinator", "administrative", "research", "director", "advisor", "career", "it", "facilities"] },
+
+    { "name": "Goodwill", "query": "Goodwill", "group": "Workforce nonprofits", "metros": ["any"],
+      "keywords": ["workforce", "career", "job coach", "case manager", "program", "retail", "donation", "store", "instructor", "employment", "director", "manager"] },
+    { "name": "YMCA", "query": "YMCA", "group": "Workforce nonprofits", "metros": ["any"],
+      "keywords": ["youth", "program", "coordinator", "camp", "childcare", "fitness", "community", "director", "manager", "education", "workforce"] },
+    { "name": "United Way", "query": "United Way", "group": "Workforce nonprofits", "metros": ["any"],
+      "keywords": ["community", "program", "manager", "director", "development", "fundraising", "partnership", "workforce", "impact", "coordinator"] },
+    { "name": "Year Up", "query": "Year Up", "group": "Workforce nonprofits", "metros": ["Washington, DC", "Baltimore", "New York City", "Chicago", "Boston", "San Francisco Bay Area", "Philadelphia", "Atlanta", "Seattle", "Los Angeles", "Columbus"],
+      "keywords": ["workforce", "career", "coach", "instructor", "program", "employer", "partnership", "director", "manager", "student", "youth", "training"] }
+  ]
+}

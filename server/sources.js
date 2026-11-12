@@ -2,6 +2,7 @@
 // it returns [] and the app falls back to the sample dataset.
 // Every source returns jobs in the same shape as data/sample-jobs.json.
 import "./env.js";
+import { readFileSync } from "node:fs";
 import { geocode, metroFor } from "./geo.js";
 import { totalYears } from "./experience.js";
 
@@ -14,9 +15,9 @@ const searchCache = new Map();
 // Searches still running, so a match request that arrives during a background prefetch
 // (see prefetchJobs) waits for that search instead of starting a second one.
 const inFlight = new Map();
-async function getJson(url, options = {}, ms = 6000) {
+async function getJson(url, { ttl = SEARCH_TTL, ...options } = {}, ms = 6000) {
   const hit = searchCache.get(url);
-  if (hit && Date.now() - hit.at < SEARCH_TTL) return hit.data;
+  if (hit && Date.now() - hit.at < ttl) return hit.data;
   if (inFlight.has(url)) return inFlight.get(url);
   const request = (async () => {
     const res = await fetch(url, { ...options, signal: AbortSignal.timeout(ms) });
@@ -36,7 +37,7 @@ export const sourceStatus = {};
 const note = (name, result, error) => { sourceStatus[name] = { at: new Date().toISOString(), jobs: result, error: error || null }; };
 export function sourcesConfigured() {
   const e = process.env;
-  return { usajobs: !!(e.USAJOBS_API_KEY && e.USAJOBS_EMAIL), adzuna: !!(e.ADZUNA_APP_ID && e.ADZUNA_APP_KEY), jsearch: !!e.JSEARCH_API_KEY, remotive: true };
+  return { usajobs: !!(e.USAJOBS_API_KEY && e.USAJOBS_EMAIL), adzuna: !!(e.ADZUNA_APP_ID && e.ADZUNA_APP_KEY), jsearch: !!e.JSEARCH_API_KEY, employers: !!e.JSEARCH_API_KEY, remotive: true };
 }
 const firstRole = (p) => (p.target_roles || [])[0] || (p.experience || [])[0]?.title || "";
 
@@ -163,24 +164,79 @@ export async function jsearch(p) {
       }
       const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
       note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
-      return data.slice(0, 10).map((j) => {
-        const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";
-        const toYear = (n) => (n ? Math.round(hourly ? n * 2080 : n) : null);
-        return {
-          id: `jsearch-${j.job_id}`, title: j.job_title, company: j.employer_name,
-          city: [j.job_city, j.job_state].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : null),
-          lat: j.job_latitude ?? null, lng: j.job_longitude ?? null, work_mode: j.job_is_remote ? "remote" : "onsite",
-          pay_min: yearly || hourly ? toYear(j.job_min_salary) : null, pay_max: yearly || hourly ? toYear(j.job_max_salary) : null,
-          summary: (j.job_description || "").slice(0, 300), description: requirementsText(j.job_description), url: j.job_apply_link,
-          source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
-        };
-      });
+      return data.slice(0, 10).map(fromJSearch);
     } catch (err) {
       note("jsearch", 0, err.message);
       return [];
     }
   };
   return (await Promise.all(queries.map(one))).flat();
+}
+
+// One Google for Jobs listing in the app's job shape.
+function fromJSearch(j) {
+  const yearly = j.job_salary_period === "YEAR", hourly = j.job_salary_period === "HOUR";
+  const toYear = (n) => (n ? Math.round(hourly ? n * 2080 : n) : null);
+  return {
+    id: `jsearch-${j.job_id}`, title: j.job_title, company: j.employer_name,
+    city: [j.job_city, j.job_state].filter(Boolean).join(", ") || (j.job_is_remote ? "Remote" : null),
+    lat: j.job_latitude ?? null, lng: j.job_longitude ?? null, work_mode: j.job_is_remote ? "remote" : "onsite",
+    pay_min: yearly || hourly ? toYear(j.job_min_salary) : null, pay_max: yearly || hourly ? toYear(j.job_max_salary) : null,
+    summary: (j.job_description || "").slice(0, 300), description: requirementsText(j.job_description), url: j.job_apply_link,
+    source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
+  };
+}
+
+// ---- Featured employers (data/employers.json), searched directly through Google for Jobs ----
+// Employers like CACI post to Google for Jobs from their own careers sites, so their openings come with apply
+// links to the employer. (Their Workday job pages disallow automated reading, so we don't read those directly.)
+// To stay inside the free JSearch plan, each search picks at most 2 employers that hire in the applicant's metro
+// and best fit their target roles, and reuses each employer's results for a day.
+const EMPLOYERS = JSON.parse(readFileSync(new URL("./data/employers.json", import.meta.url))).employers;
+const EMPLOYER_TTL = 24 * 3600e3;
+const MAX_EMPLOYERS = 2;
+const fold = (t) => String(t || "").toLowerCase();
+
+export async function pickEmployers(p) {
+  const metro = metroFor(await geocode(p.city))?.name;
+  const words = fold([...(p.target_roles || []), ...(p.experience || []).map((e) => e.title), ...(p.skills || [])].join(" "));
+  return EMPLOYERS
+    .filter((e) => e.metros.includes("any") || (metro && e.metros.includes(metro)))
+    .map((e) => ({ e, fit: e.keywords.filter((k) => new RegExp(`\\b${k}`, "i").test(words)).length }))
+    .filter((x) => x.fit > 0)
+    .sort((a, b) => b.fit - a.fit)
+    .slice(0, MAX_EMPLOYERS)
+    .map((x) => x.e);
+}
+
+export async function employerJobs(p) {
+  const key = process.env.JSEARCH_API_KEY;
+  if (!key) return [];
+  const [employers, where] = await Promise.all([pickEmployers(p), searchPlace(p.city)]);
+  const role = searchRoles(p)[0] || "";
+  const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" };
+  const one = async (emp) => {
+    const qs = new URLSearchParams({ query: `${role} ${emp.query} jobs${where ? ` in ${where}` : ""}`.trim(), num_pages: "1", country: "us", date_posted: "month" });
+    try {
+      const res = await getJson(`https://jsearch.p.rapidapi.com/search-v2?${qs}`, { headers, ttl: EMPLOYER_TTL }, 20000);
+      const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
+      // Keep only that employer's own listings (searches can return other companies too).
+      const name = fold(emp.name).split(" ")[0];
+      // Apply on the employer's own careers site when Google lists it, rather than a job-board copy.
+      const own = (j) => (j.apply_options || []).find((o) => fold(o.publisher).includes(name) || /careers|myworkdayjobs|icims|taleo/i.test(o.apply_link || ""));
+      return data.filter((j) => fold(j.employer_name).includes(name))
+        .sort((a, b) => Number(!!own(b)) - Number(!!own(a))) // postings on the employer's own site first
+        .slice(0, 6)
+        .map((j) => ({ ...fromJSearch(j), url: own(j)?.apply_link || j.job_apply_link, employer: emp.name,
+          source: own(j) ? `${emp.name} careers` : `${emp.name} via ${j.job_publisher || "Google Jobs"}` }));
+    } catch (err) {
+      note("employers", 0, err.message);
+      return [];
+    }
+  };
+  const jobs = (await Promise.all(employers.map(one))).flat();
+  note("employers", jobs.length, null);
+  return jobs;
 }
 
 // The part of a job description the Scorecard needs to compare skills: the requirements, not the company intro.
@@ -212,9 +268,9 @@ export async function remotive(p) {
 // Local = jobs you commute to (USAJobs, Adzuna, Google Jobs). Remote = Remotive.
 // The same opening often appears on several boards, so repeats (same title and company) are dropped.
 export async function liveJobs(p) {
-  const [fed, board, google, remote] = await Promise.all([usajobs(p), adzuna(p), jsearch(p), remotive(p)]);
+  const [fed, board, google, remote, featured] = await Promise.all([usajobs(p), adzuna(p), jsearch(p), remotive(p), employerJobs(p)]);
   // Take turns between sources so no single one fills the list, then drop repeats (same title and company).
-  const lists = [google, board, isEntryLevel(p) ? [] : fed]; // federal listings rarely suit a first job
+  const lists = [featured, google, board, isEntryLevel(p) ? [] : fed]; // federal listings rarely suit a first job
   const mixed = [];
   for (let i = 0; i < Math.max(...lists.map((l) => l.length)); i++) for (const l of lists) if (l[i]) mixed.push(l[i]);
   const seen = new Set();
