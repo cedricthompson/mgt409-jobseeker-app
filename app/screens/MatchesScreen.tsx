@@ -46,12 +46,13 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
 
   // Runs searches until at least one job clears both 50% bars or every search has been tried.
   // Each request widens the search on the server (other titles for the same work, more pages of results).
-  const look = async (round: number, prev: { matches: Match[]; checked: string[]; considered: number; reach: Employer[]; sample: boolean }) => {
+  type Found = { matches: Match[]; checked: string[]; considered: number; reach: Employer[]; sample: boolean };
+  const look = async (round: number, prev: Found, target = 6): Promise<Found & { next: number | null }> => {
     let all = prev.matches, seen = prev.checked, total = prev.considered, reach = prev.reach, isSample = prev.sample;
     let next: number | null = round;
     do {
-      setStep(round === 0 && !all.length ? SEARCHING : `Still looking: checked ${total} jobs so far. Searching more…`);
-      const m: MatchReply = await post<MatchReply>('/api/match', { profile, prefs, round: next, exclude: seen });
+      setStep(!all.length ? (round === 0 && !total ? SEARCHING : `Still looking: checked ${total} jobs so far. Searching more…`) : 'Finding more jobs for you…');
+      const m: MatchReply = await post<MatchReply>('/api/match', { profile, prefs, round: next, exclude: seen, target });
       const have = new Set(all.map((x) => x.id));
       all = [...all, ...m.matches.filter((x) => !have.has(x.id))];
       seen = m.checked; total += m.considered; next = m.next_round; isSample = isSample || m.data === 'sample';
@@ -63,6 +64,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
     setStep('');
     AsyncStorage.setItem(MATCHES_KEY, JSON.stringify({ profile: JSON.stringify(profile), matches: all, sample: isSample,
       next_round: next, checked: seen, considered: total, reach_out: reach, at: Date.now() }));
+    return { matches: all, checked: seen, considered: total, reach, sample: isSample, next };
   };
 
   // The last matches for this profile are kept on the device, so they're still here after leaving this
@@ -81,7 +83,9 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
         AsyncStorage.removeItem(OLD_MATCHES_KEY); // made under the old rules: search again
       }
       setMatches([]); setCards({}); setReachOut([]); setConsidered(0); setChecked([]);
-      await look(0, { matches: [], checked: [], considered: 0, reach: [], sample: false });
+      // Speed: show the first 3 jobs that clear both bars as soon as they're found, then find more in the background.
+      const first = await look(0, { matches: [], checked: [], considered: 0, reach: [], sample: false }, 3);
+      if (first.next != null && first.matches.filter((x) => qualifies(x.card)).length < 6) await look(first.next, first, 6);
     } catch (e) {
       setError(`Something went wrong. ${(e as Error).message}`); setStep('');
     }

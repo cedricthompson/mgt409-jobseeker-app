@@ -20,10 +20,22 @@ const SAMPLE = JSON.parse(readFileSync(new URL("../data/sample-jobs.json", impor
 
 export const MIN_INTERVIEW = 50; // percent chance of an interview
 export const MIN_HIRE = 50; // percent chance of an offer once interviewed
-const TARGET = 6; // stop widening once this many jobs qualify
-const ROUNDS_PER_REQUEST = 3; // keeps one request to about a minute or two
+const TARGET = 6; // stop widening once this many jobs qualify (the app asks for 3 first, to show results sooner)
+const ROUNDS_PER_REQUEST = 3; // keeps one request to about a minute
 const SHORTLIST = 20; // jobs scored per round
-const SCORE_BATCH = 12; // the Scorecard takes up to 12 jobs per call
+// Speed: the Scorecard scores one job per call, up to 12 calls at once. Measured on 7 real jobs: 31 s in one call,
+// 8 s one per call in parallel (each call writes a short answer, and they all run at the same time).
+const SCORE_PARALLEL = 12;
+
+// Runs fn over items with at most `limit` running at once, keeping the order.
+async function inParallel(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
+  }));
+  return out;
+}
 
 export const qualifies = (c) => c?.predictions?.interview >= MIN_INTERVIEW && c?.predictions?.hire >= MIN_HIRE;
 // Both chances matter, so jobs are ranked by the chance of getting an interview and then the offer.
@@ -97,14 +109,20 @@ function reachOut(jobs, found) {
 
 const jobKey = (j) => `${j.title}|${j.company}`.toLowerCase().replace(/\s+/g, " ");
 
-export async function matchJobs({ profile = {}, session, prefs, round = 0, exclude = [] }) {
+export async function matchJobs({ profile = {}, session, prefs, round = 0, exclude = [], target = TARGET }) {
+  const enough = Math.max(1, Math.min(Number(target) || TARGET, TARGET));
   const seen = new Set((Array.isArray(exclude) ? exclude : []).map(String));
   const found = [], gathered = [];
   let considered = 0, scored = 0, data = "live";
   const first = Math.max(0, Math.min(Number(round) || 0, MAX_WIDEN + 1));
   let r = first;
-  for (; r <= MAX_WIDEN && r < first + ROUNDS_PER_REQUEST && found.length < TARGET; r++) {
-    const live = await liveJobs(profile, { widen: r });
+  // Speed: the next round's search starts while this round is being scored, so widening doesn't wait on the job sites.
+  // (Searches are cached for an hour, so one that ends up unused costs nothing if the applicant keeps looking.)
+  let upcoming = liveJobs(profile, { widen: r });
+  for (; r <= MAX_WIDEN && r < first + ROUNDS_PER_REQUEST && found.length < enough; r++) {
+    const live = await upcoming;
+    upcoming = r + 1 <= MAX_WIDEN && r + 1 < first + ROUNDS_PER_REQUEST ? liveJobs(profile, { widen: r + 1 }) : null;
+    upcoming?.catch(() => {});
     // Real local listings come first. Sample jobs are fictional, so they're only used when
     // no live local source returns anything (no keys set, offline, or no results), and are never widened.
     let pool = [...live.local, ...live.remote];
@@ -115,9 +133,7 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
     considered += fresh.length;
     if (fresh.length) {
       const picks = await shortlist(profile, fresh.slice(0, 60), { session, prefs }); // cap keeps the call affordable
-      const batches = [];
-      for (let i = 0; i < picks.length; i += SCORE_BATCH) batches.push(picks.slice(i, i + SCORE_BATCH));
-      const cards = (await Promise.all(batches.map((b) => scorecard({ profile, jobs: b.map((m) => m.job), session, prefs })))).flat();
+      const cards = (await inParallel(picks, SCORE_PARALLEL, (m) => scorecard({ profile, jobs: [m.job], session, prefs }))).flat();
       scored += cards.length;
       const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
       for (const m of picks) if (qualifies(byId[m.id])) found.push({ ...m, card: byId[m.id] });
