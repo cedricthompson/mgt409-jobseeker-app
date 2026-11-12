@@ -42,7 +42,7 @@ function TypedHeadline({ animate, onDone }: { animate: boolean; onDone: () => vo
   const [n, setN] = useState(animate ? 0 : full.length);
   useEffect(() => {
     if (!animate) { setN(full.length); return; }
-    const id = setInterval(() => setN((k) => (k >= full.length ? k : k + 1)), 32); // about one second in all
+    const id = setInterval(() => setN((k) => (k >= full.length ? k : k + 1)), 70); // about two and a half seconds in all, a natural typing pace
     return () => clearInterval(id);
   }, [animate]);
   useEffect(() => { if (n >= full.length) onDone(); }, [n >= full.length]);
@@ -64,7 +64,7 @@ function FadeUp({ show, animate, children }: { show: boolean; animate: boolean; 
   const t = useRef(new Animated.Value(animate ? 0 : 1)).current;
   useEffect(() => {
     if (!animate) { t.setValue(1); return; }
-    if (show) Animated.timing(t, { toValue: 1, duration: 500, useNativeDriver: Platform.OS !== 'web' }).start();
+    if (show) Animated.timing(t, { toValue: 1, duration: 1000, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [show, animate]);
   const translateY = t.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
   return <Animated.View style={{ opacity: t, transform: [{ translateY }] }}>{children}</Animated.View>;
@@ -75,7 +75,7 @@ function FlyIn({ animate, children }: { animate: boolean; children: React.ReactN
   const t = useRef(new Animated.Value(animate ? 0 : 1)).current;
   useEffect(() => {
     if (!animate) { t.setValue(1); return; }
-    Animated.timing(t, { toValue: 1, duration: 650, delay: 250, useNativeDriver: Platform.OS !== 'web' }).start();
+    Animated.timing(t, { toValue: 1, duration: 1200, delay: 500, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [animate]);
   const translateX = t.interpolate({ inputRange: [0, 1], outputRange: [160, 0] });
   return <Animated.View style={{ opacity: t, transform: [{ translateX }] }}>{children}</Animated.View>;
