@@ -136,10 +136,17 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
     considered += fresh.length;
     if (fresh.length) {
       const t1 = clock();
-      const picks = await shortlist(profile, fresh.slice(0, 60), { session, prefs }); // cap keeps the call affordable
+      const pick = () => shortlist(profile, fresh.slice(0, 60), { session, prefs }); // cap keeps the call affordable
+      const picks = await pick().catch(() => pick()); // one retry if the model call fails
       step.shortlist = t1();
       const t2 = clock();
-      const cards = (await inParallel(picks, SCORE_PARALLEL, (m) => scorecard({ profile, jobs: [m.job], session, prefs }))).flat();
+      // A failed model call (the provider sometimes returns a 500) is retried once; if it fails again, that one job
+      // is skipped instead of failing the whole search.
+      const scoreOne = (m) => scorecard({ profile, jobs: [m.job], session, prefs });
+      const cards = (await inParallel(picks, SCORE_PARALLEL, (m) => scoreOne(m).catch(() => scoreOne(m)).catch((err) => {
+        console.error(`Scorecard failed for ${m.job.id}:`, err.message);
+        return [];
+      }))).flat();
       step.score = t2();
       scored += cards.length;
       const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
