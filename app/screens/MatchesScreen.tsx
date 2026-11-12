@@ -155,7 +155,10 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
                     {job.pay_estimated ? ' (estimated)' : ''}
                     {job.source ? ` · ${job.source}` : ''}
                   </Text>
-                  <Text style={[styles.fit, (fit === 'stretch' || longShot) && { color: colors.muted }]}>{longShot ? 'Long shot' : FIT_LABEL[fit]}</Text>
+                  {/* Same verdict as the sample scorecard: once scored, a match has a 50%+ interview chance. */}
+                  {c && !longShot
+                    ? <Text style={[styles.fit, { color: colors.green }]}>✓ Worth applying</Text>
+                    : <Text style={[styles.fit, (fit === 'stretch' || longShot) && { color: colors.muted }]}>{longShot ? 'Long shot' : FIT_LABEL[fit]}</Text>}
                 </View>
               </View>
 
