@@ -37,7 +37,7 @@ const STEPS = [
 // The headline types itself out quickly, like a typewriter. The rest of the line is already there but invisible,
 // so nothing below it jumps while it types. Screen readers hear the whole line at once.
 const HEADLINE = ['Let us help you ', 'predict your future.'] as const;
-function TypedHeadline({ animate }: { animate: boolean }) {
+function TypedHeadline({ animate, onDone }: { animate: boolean; onDone: () => void }) {
   const full = HEADLINE.join('');
   const [n, setN] = useState(animate ? 0 : full.length);
   useEffect(() => {
@@ -45,6 +45,7 @@ function TypedHeadline({ animate }: { animate: boolean }) {
     const id = setInterval(() => setN((k) => (k >= full.length ? k : k + 1)), 32); // about one second in all
     return () => clearInterval(id);
   }, [animate]);
+  useEffect(() => { if (n >= full.length) onDone(); }, [n >= full.length]);
   const cut = HEADLINE[0].length;
   const typing = n < full.length;
   return (
@@ -55,6 +56,18 @@ function TypedHeadline({ animate }: { animate: boolean }) {
       {typing && <Text style={{ color: 'transparent' }}>{full.slice(n)}</Text>}
     </Text>
   );
+}
+
+// The line under the headline fades up once the headline has finished typing.
+// It is in the page from the start, so screen readers can read it right away.
+function FadeUp({ show, animate, children }: { show: boolean; animate: boolean; children: React.ReactNode }) {
+  const t = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  useEffect(() => {
+    if (!animate) { t.setValue(1); return; }
+    if (show) Animated.timing(t, { toValue: 1, duration: 500, useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [show, animate]);
+  const translateY = t.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
+  return <Animated.View style={{ opacity: t, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
 // The sample scorecard flies in from the right as the page opens.
@@ -81,6 +94,7 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
   const [deviceReduce, setDeviceReduce] = useState(false);
   useEffect(() => { AccessibilityInfo.isReduceMotionEnabled().then(setDeviceReduce).catch(() => {}); }, []);
   const animate = !reduceMotion && !deviceReduce;
+  const [typed, setTyped] = useState(false);
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.page}>
@@ -107,12 +121,13 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
         <View style={[styles.heroRow, { flexDirection: wideHero ? 'row' : 'column' }]}>
           <View style={[styles.section, wideHero && { flex: 1.3 }]}>
             <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()}</Text>
-            <TypedHeadline animate={animate} />
-            <Text style={styles.lead}>
-              <Text style={styles.bold}>Know which jobs are worth your time.</Text> Every job we find gets a{' '}
-              <Text style={styles.bold}>Predictability Score</Text> from 0 to 100 that estimates your chances of an
-              interview and an offer. Spend your time on the jobs you're likely to land, and skip the ones that won't call back.
-            </Text>
+            <TypedHeadline animate={animate} onDone={() => setTyped(true)} />
+            <FadeUp show={typed} animate={animate}>
+              <Text style={styles.lead}>
+                <Text style={styles.bold}>Our job Predictability Scorecard is all you need to manage your job search.</Text>{' '}
+                Apply to jobs that get you closer to your dream.
+              </Text>
+            </FadeUp>
           </View>
           <View style={wideHero ? { flex: 1, maxWidth: 400 } : { width: '100%', maxWidth: 440, alignSelf: 'center' }}>
             <FlyIn animate={animate}><MiniScorecard onOpen={onScorecard} /></FlyIn>
