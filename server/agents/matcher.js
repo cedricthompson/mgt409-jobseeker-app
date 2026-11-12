@@ -81,7 +81,7 @@ export async function shortlist(profile, jobs, { session, prefs }) {
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
       { role: "user", content: `Applicant: ${JSON.stringify({ ...jobFacts(profile), starting_out: isEntryLevel(profile) || undefined })}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
     ],
-    { json: true, agent: "matcher", session, effort: "low" }
+    { json: true, agent: "matcher", session, effort: "none" } // a quick pick; the Scorecard checks every job it keeps
   );
   // One entry per job, even if the model repeats one. Speed: the model returns only ids (writing a reason for
   // 20 jobs took about 30 s); each job's reason and gaps come from its scorecard instead.
