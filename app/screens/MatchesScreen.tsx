@@ -9,15 +9,19 @@ import WhyScore from '../components/WhyScore';
 import SearchElsewhere from '../components/SearchElsewhere';
 
 type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
-type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
-const FIT_LABEL = { strong: 'Strong match', good: 'Good match', stretch: 'Stretch' };
-export const MATCHES_KEY = 'matches.v2';
-// Matches saved before the odds were retuned. They're kept and scored again with the new rules, not dropped.
-export const OLD_MATCHES_KEY = 'matches.v1';
-// A job only counts as a match when the applicant has at least this chance of an interview.
-// Jobs below it are kept as "long shots", hidden unless the applicant asks to see them.
+type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job; card?: Card };
+type Employer = { name: string; kind: string; city?: string | null; website?: string | null; openings: number; example: string };
+type MatchReply = { matches: Match[]; data: string; considered: number; scored: number; next_round: number | null; checked: string[]; reach_out: Employer[] };
+export const MATCHES_KEY = 'matches.v3';
+// Matches saved under the older rules (interview chance only). Their profile gets a fresh search with the new rules.
+export const OLD_MATCHES_KEY = 'matches.v2';
+// A job is only shown when the applicant has at least this chance of an interview AND of an offer.
+// The server only returns jobs that clear both; the check here also covers matches saved on the device.
 export const MATCH_MIN_INTERVIEW = 50;
+export const MATCH_MIN_HIRE = 50;
+const qualifies = (c?: Card) => (c?.predictions.interview ?? 0) >= MATCH_MIN_INTERVIEW && (c?.predictions.hire ?? 0) >= MATCH_MIN_HIRE;
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
+const KIND_LABEL = (k: string) => k.charAt(0).toUpperCase() + k.slice(1);
 
 export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob, signedIn, onAccount }: {
   profile: Profile; prefs: Prefs; onBack: () => void; onTracker: () => void; onCheckJob: () => void;
@@ -29,46 +33,64 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   const [cards, setCards] = useState<Record<string, Card>>({});
   const [sample, setSample] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
-  const [showLong, setShowLong] = useState(false);
   const [error, setError] = useState('');
+  // Where "Keep looking" continues (null once every search has been tried), the jobs already checked so they
+  // aren't scored twice, how many jobs were looked at, and nearby employers to contact directly.
+  const [nextRound, setNextRound] = useState<number | null>(null);
+  const [checked, setChecked] = useState<string[]>([]);
+  const [considered, setConsidered] = useState(0);
+  const [reachOut, setReachOut] = useState<Employer[]>([]);
   const started = useRef(false);
 
-  const rescore = async (list: Match[], isSample: boolean) => {
-    setStep('Scoring each job…');
-    const s = await post<Card[]>('/api/scorecard', { profile, prefs, jobs: list.map((x) => x.job) });
-    const byId = Object.fromEntries(s.map((c) => [c.id, c]));
-    setCards(byId);
+  const SEARCHING = 'Searching jobs near you and scoring your chances. This can take a minute or two…';
+
+  // Runs searches until at least one job clears both 50% bars or every search has been tried.
+  // Each request widens the search on the server (other titles for the same work, more pages of results).
+  const look = async (round: number, prev: { matches: Match[]; checked: string[]; considered: number; reach: Employer[]; sample: boolean }) => {
+    let all = prev.matches, seen = prev.checked, total = prev.considered, reach = prev.reach, isSample = prev.sample;
+    let next: number | null = round;
+    do {
+      setStep(round === 0 && !all.length ? SEARCHING : `Still looking: checked ${total} jobs so far. Searching more…`);
+      const m: MatchReply = await post<MatchReply>('/api/match', { profile, prefs, round: next, exclude: seen });
+      const have = new Set(all.map((x) => x.id));
+      all = [...all, ...m.matches.filter((x) => !have.has(x.id))];
+      seen = m.checked; total += m.considered; next = m.next_round; isSample = isSample || m.data === 'sample';
+      const names = new Set(reach.map((e) => e.name.toLowerCase()));
+      reach = [...reach, ...(m.reach_out || []).filter((e) => !names.has(e.name.toLowerCase()))].slice(0, 10);
+      setMatches(all); setCards(Object.fromEntries(all.filter((x) => x.card).map((x) => [x.id, x.card!])));
+      setChecked(seen); setConsidered(total); setNextRound(next); setReachOut(reach); setSample(isSample);
+    } while (!all.some((x) => qualifies(x.card)) && next != null);
     setStep('');
-    AsyncStorage.setItem(MATCHES_KEY, JSON.stringify({ profile: JSON.stringify(profile), matches: list, cards: byId, sample: isSample, at: Date.now() }));
+    AsyncStorage.setItem(MATCHES_KEY, JSON.stringify({ profile: JSON.stringify(profile), matches: all, sample: isSample,
+      next_round: next, checked: seen, considered: total, reach_out: reach, at: Date.now() }));
   };
 
   // The last matches for this profile are kept on the device, so they're still here after leaving this
   // screen or reloading the page. "Search again" runs a fresh search.
   const search = async (fresh: boolean) => {
-    setError(''); setOpen(null); setShowLong(false);
+    setError(''); setOpen(null);
     try {
       if (!fresh) {
         const saved = JSON.parse((await AsyncStorage.getItem(MATCHES_KEY)) || 'null');
-        if (saved?.profile === JSON.stringify(profile) && saved.matches?.length) {
-          setMatches(saved.matches); setCards(saved.cards || {}); setSample(!!saved.sample); setStep('');
+        if (saved?.profile === JSON.stringify(profile) && saved.matches) {
+          setMatches(saved.matches); setCards(Object.fromEntries(saved.matches.filter((x: Match) => x.card).map((x: Match) => [x.id, x.card])));
+          setSample(!!saved.sample); setNextRound(saved.next_round ?? null); setChecked(saved.checked || []);
+          setConsidered(saved.considered || 0); setReachOut(saved.reach_out || []); setStep('');
           return;
         }
-        const old = JSON.parse((await AsyncStorage.getItem(OLD_MATCHES_KEY)) || 'null');
-        if (old?.profile === JSON.stringify(profile) && old.matches?.length) {
-          // Show them right away with their old scores, in case scoring again fails (offline).
-          setMatches(old.matches); setCards(old.cards || {}); setSample(!!old.sample);
-          await rescore(old.matches, !!old.sample);
-          AsyncStorage.removeItem(OLD_MATCHES_KEY);
-          return;
-        }
+        AsyncStorage.removeItem(OLD_MATCHES_KEY); // made under the old rules: search again
       }
-      setMatches([]); setCards({}); setStep('Finding jobs near you…');
-      const m = await post<{ matches: Match[]; data: string }>('/api/match', { profile, prefs });
-      setMatches(m.matches); setSample(m.data === 'sample');
-      await rescore(m.matches, m.data === 'sample');
+      setMatches([]); setCards({}); setReachOut([]); setConsidered(0); setChecked([]);
+      await look(0, { matches: [], checked: [], considered: 0, reach: [], sample: false });
     } catch (e) {
       setError(`Something went wrong. ${(e as Error).message}`); setStep('');
     }
+  };
+  const keepLooking = async () => {
+    if (nextRound == null) return;
+    setError('');
+    try { await look(nextRound, { matches, checked, considered, reach: reachOut, sample }); }
+    catch (e) { setError(`Something went wrong. ${(e as Error).message}`); setStep(''); }
   };
 
   useEffect(() => {
@@ -81,15 +103,10 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   const save = (id: string, job: Job, c?: Card) =>
     tracker.add(id, job, c ? { overall: c.overall, predictions: c.predictions } : undefined);
 
-  // Best interview chance first; ties go to the better overall fit.
-  const rank = (m: Match) => (cards[m.id]?.predictions.interview ?? -1) * 1000 + (cards[m.id]?.overall ?? -1);
-  const sorted = [...matches].sort((a, b) => rank(b) - rank(a));
-  const scored = !step && Object.keys(cards).length > 0;
-  // Until scorecards arrive every job is listed; once scored, only real chances count as matches.
-  const isMatch = (m: Match) => !scored || (cards[m.id]?.predictions.interview ?? 0) >= MATCH_MIN_INTERVIEW;
-  const good = sorted.filter(isMatch);
-  const longShots = sorted.filter((m) => !isMatch(m));
-  const shown = showLong ? [...good, ...longShots] : good;
+  // Only jobs with at least a 50% chance of an interview and of an offer are shown, best combined chance first.
+  const both = (m: Match) => (cards[m.id]?.predictions.interview ?? 0) * (cards[m.id]?.predictions.hire ?? 0);
+  const good = matches.filter((m) => qualifies(cards[m.id])).sort((a, b) => both(b) - both(a));
+  const scored = !step && considered > 0;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -103,7 +120,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
             <Text style={styles.backText}>My applications ({tracker.items.length}) ›</Text>
           </Pressable>
         </View>
-        {!step && matches.length > 0 && (
+        {!step && considered > 0 && (
           <Pressable onPress={() => search(true)} accessibilityRole="button" accessibilityLabel="Search again for new jobs" style={styles.back}>
             <Text style={styles.backText}>↻ Search again for new jobs</Text>
           </Pressable>
@@ -138,14 +155,13 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
         {scored && (
           <Text style={type.small}>
             {good.length
-              ? `Showing ${good.length} job${good.length === 1 ? '' : 's'} where you have at least a ${MATCH_MIN_INTERVIEW}% chance of an interview, best chance first.`
-              : `None of the jobs we found give you at least a ${MATCH_MIN_INTERVIEW}% chance of an interview yet. Try Search again, check a job you found, or see the long shots below.`}
+              ? `We checked ${considered} jobs. Showing ${good.length} where you have at least a ${MATCH_MIN_INTERVIEW}% chance of an interview and at least a ${MATCH_MIN_HIRE}% chance of an offer, best chances first.`
+              : `We checked ${considered} jobs near you, and none give you at least a ${MATCH_MIN_INTERVIEW}% chance of both an interview and an offer yet. ${nextRound != null ? 'Tap Keep looking to search further. ' : ''}Telling Theo more about the jobs you want, allowing a longer commute, or checking a job you found can help. The employers below are hiring for similar work and are worth contacting directly.`}
           </Text>
         )}
 
-        {shown.map(({ id, fit, why, gaps, job }) => {
+        {good.map(({ id, why, gaps, job }) => {
           const c = cards[id];
-          const longShot = longShots.some((x) => x.id === id);
           const expanded = open === id;
           return (
             <View key={id} style={styles.card}>
@@ -169,10 +185,8 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
                     {job.pay_estimated ? ' (estimated)' : ''}
                     {job.source ? ` · ${job.source}` : ''}
                   </Text>
-                  {/* Same verdict as the sample scorecard: once scored, a match has a 50%+ interview chance. */}
-                  {c && !longShot
-                    ? <Text style={[styles.fit, { color: colors.green }]}>✓ Worth applying</Text>
-                    : <Text style={[styles.fit, (fit === 'stretch' || longShot) && { color: colors.muted }]}>{longShot ? 'Long shot' : FIT_LABEL[fit]}</Text>}
+                  {/* Every job shown has at least a 50% chance of an interview and of an offer. */}
+                  <Text style={[styles.fit, { color: colors.green }]}>✓ Worth applying</Text>
                 </View>
               </View>
 
@@ -219,18 +233,38 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
           );
         })}
 
-        {scored && longShots.length > 0 && (
+        {!step && nextRound != null && (
           <Pressable
-            onPress={() => setShowLong(!showLong)}
-            style={styles.back}
+            onPress={keepLooking}
+            style={good.length ? styles.whyBtn : styles.apply}
             accessibilityRole="button"
-            accessibilityState={{ expanded: showLong }}
-            accessibilityLabel={showLong ? 'Hide long shots' : `Show ${longShots.length} long shots: jobs where your interview chance is under ${MATCH_MIN_INTERVIEW} percent`}
+            accessibilityLabel={good.length ? 'Find more jobs where you have at least a 50 percent chance' : 'Keep looking for jobs where you have at least a 50 percent chance'}
           >
-            <Text style={styles.backText}>
-              {showLong ? 'Hide long shots ▲' : `Show ${longShots.length} long shot${longShots.length === 1 ? '' : 's'} (under ${MATCH_MIN_INTERVIEW}% interview chance) ▼`}
-            </Text>
+            <Text style={good.length ? styles.whyText : styles.applyText}>{good.length ? 'Find more jobs like these' : 'Keep looking'}</Text>
           </Pressable>
+        )}
+
+        {!step && reachOut.length > 0 && (
+          <View style={styles.reach}>
+            <Text style={styles.jobTitle} role="heading" aria-level={2}>Employers near you to reach out to</Text>
+            <Text style={type.small}>These employers are hiring for work like yours. Even when a posting isn't a fit, it's worth contacting them or checking their careers page.</Text>
+            {reachOut.map((e) => (
+              <View key={e.name} style={styles.employer}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[type.body, { fontWeight: '700' }]}>{e.name}</Text>
+                  <Text style={type.small}>{[KIND_LABEL(e.kind), e.city, `${e.openings} opening${e.openings === 1 ? '' : 's'} like "${e.example}"`].filter(Boolean).join(' · ')}</Text>
+                </View>
+                <Pressable
+                  onPress={() => Linking.openURL(e.website || `https://www.google.com/search?q=${encodeURIComponent(`${e.name} careers`)}`)}
+                  style={styles.saveBtn}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Open the careers page for ${e.name}`}
+                >
+                  <Text style={styles.saveText}>Careers page</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
         )}
 
         {!step && <SearchElsewhere profile={profile} />}
@@ -272,5 +306,7 @@ const styles = themed(() => ({
   applyText: { color: colors.onAccent, fontSize: 18, fontWeight: '700' },
   checkBtn: { minHeight: 52, borderRadius: radius, borderWidth: 2, borderColor: colors.red, justifyContent: 'center', paddingHorizontal: space.md },
   checkText: { fontSize: 18, fontWeight: '700', color: colors.red },
+  reach: { borderTopWidth: 2, borderColor: colors.line, paddingTop: space.md, gap: space.sm },
+  employer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, paddingVertical: space.sm },
   credit: { ...type.small, color: colors.blue, textDecorationLine: 'underline', textAlign: 'center', paddingVertical: space.md },
 }));

@@ -19,7 +19,27 @@ function normalize(p = {}) {
   return { ...p, commute_mode: mode };
 }
 
-const MAX_GAP_QUESTIONS = 3;
+// Theo asks what jobs the applicant wants (titles and kinds of workplace) before anything else, then up to 3
+// hidden-skills questions. The job-interests question is also asked of applicants who finished their profile
+// before it existed, the next time they open the chat, so their matches can use the answer.
+const MAX_GAP_QUESTIONS = 4;
+
+// "ask_interests" until Theo has asked; "record_interests" on the turn the applicant answers; then null.
+function interestsMode(p = {}, messages = []) {
+  if (p.job_interests?.answered) return null;
+  const answering = p.job_interests?.asked && messages.at(-1)?.role === "user";
+  return answering ? "record_interests" : "ask_interests";
+}
+// Make sure the job-interests step moves forward even if the model leaves the field out, so it is never asked twice.
+function withInterests(next = {}, prev = {}, mode) {
+  if (mode === "ask_interests") return { ...next, job_interests: { ...(prev.job_interests || {}), asked: true } };
+  if (mode === "record_interests") {
+    const j = next.job_interests || {};
+    const list = (v) => (Array.isArray(v) ? v.map(String).map((x) => x.trim()).filter(Boolean).slice(0, 5) : []);
+    return { ...next, job_interests: { titles: list(j.titles), workplaces: list(j.workplaces), open_to_related: j.open_to_related !== false, answered: true } };
+  }
+  return { ...next, job_interests: next.job_interests || prev.job_interests };
+}
 // The app sends the whole chat each turn, with each assistant turn tagged by the agent that wrote it.
 function gapQuestionsAsked(messages = []) {
   return messages.filter((m) => m.role === "assistant" && m.agent === "gap").length;
@@ -45,19 +65,22 @@ async function routeTurn(raw) {
     const profile = normalize(r.profile);
     const stillMissing = missingBasics(profile);
     if (stillMissing.length > 0) return { agent: "intake", reply: r.reply, profile, missing: stillMissing, done: false };
-    // Basics are now complete: go straight to the first gap question in the same turn,
+    // Basics are now complete: go straight to Theo's first question (the jobs they want) in the same turn,
     // so the applicant never has to reply to a message that asks nothing.
-    const g = await gap({ ...body, profile, messages: [...body.messages, { role: "assistant", content: r.reply }] });
+    const mode = interestsMode(profile, []);
+    const g = await gap({ ...body, profile, mode, messages: [...body.messages, { role: "assistant", content: r.reply }] });
     return { agent: "gap", reply: `${r.reply} ${g.reply}`, why: g.why_it_matters, hidden_value: g.hidden_value,
-      profile: normalize(g.profile), missing: [], done: Boolean(g.done) };
+      profile: normalize(withInterests(g.profile, profile, mode)), missing: [], done: mode ? false : Boolean(g.done) };
   }
   // Gap analysis gets at most MAX_GAP_QUESTIONS questions, enforced here so a long interview can't happen.
   const asked = gapQuestionsAsked(raw.messages);
-  const r = await gap(body);
+  const mode = interestsMode(body.profile, body.messages);
+  const r = await gap({ ...body, mode });
+  const profile = normalize(withInterests(r.profile, body.profile, mode));
   if (asked >= MAX_GAP_QUESTIONS) {
     return { agent: "gap", reply: "Thank you. Your profile is ready, so let's look at jobs that fit you.",
-      hidden_value: r.hidden_value, profile: normalize(r.profile), missing: [], done: true };
+      hidden_value: r.hidden_value, profile, missing: [], done: true };
   }
   return { agent: "gap", reply: r.reply, why: r.why_it_matters, hidden_value: r.hidden_value,
-    profile: normalize(r.profile), missing: [], done: Boolean(r.done) || asked + 1 >= MAX_GAP_QUESTIONS };
+    profile, missing: [], done: mode === "ask_interests" ? false : Boolean(r.done) || asked + 1 >= MAX_GAP_QUESTIONS };
 }

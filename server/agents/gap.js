@@ -15,10 +15,26 @@ ${SAFETY}
 Reply ONLY with JSON: {"reply": string, "why_it_matters": string, "confirmed_skills": [string], "hidden_value": [{"skill": string, "evidence": string, "confirmed": boolean}], "profile": object, "done": boolean}
 "profile" is the current profile with confirmed facts merged in (add a "skills" array). Set done=true when no high-value gaps remain.`;
 
-export async function gap({ messages = [], profile = {}, session, prefs }) {
+// Theo's first question to everyone, including applicants who finished their profile before this question
+// existed: what jobs they want and where. Matching and job searches use their answer first (sources.js searchRoles).
+const ASK_INTERESTS = `This turn, ask ONLY about the jobs they want (no skills question yet): which job titles they have in mind
+(they can name a few), and what kind of workplace they'd like (for example a hospital, an IT company, a school, government,
+a store, an office). If the profile already has target_roles, name them as a starting point and ask whether those are right
+or whether they have other ideas. If the conversation so far is empty, they are coming back: welcome them back in a few words.
+Say briefly that their answer helps find jobs where they have a real chance of an interview and an offer.
+Return the profile unchanged, with "done": false.`;
+const RECORD_INTERESTS = `The applicant just answered your question about the jobs they want. In "profile", record
+"job_interests": {"titles": [the job titles they named, cleaned up, in their words], "workplaces": [the kinds of workplace
+they named, short, e.g. "hospital", "IT company"], "open_to_related": false only if they say they want only those jobs, else true,
+"answered": true}. If they named no titles (for example "not sure"), keep "titles": [] and "open_to_related": true.
+Set "target_roles" to their titles first, then earlier target roles they did not reject, at most 4 in all.
+Then thank them in a few words and ask your first hidden-skills question as usual.`;
+
+export async function gap({ messages = [], profile = {}, session, prefs, mode }) {
+  const step = mode === "ask_interests" ? ASK_INTERESTS : mode === "record_interests" ? RECORD_INTERESTS : null;
   const { text } = await chat(
     [
-      { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
+      { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}${step ? `\n${step}` : ""}` },
       { role: "system", content: `Current profile: ${JSON.stringify(jobFacts(profile))}` },
       ...messages,
     ],

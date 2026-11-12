@@ -42,3 +42,30 @@ export function candidates(jobTitle, n = 3) {
   const codes = [...new Set([exact, ...ranked].filter(Boolean))].filter((c) => ONET.occupations[c]).slice(0, n);
   return codes.map(occupation);
 }
+
+// Other common job titles for the same work, used to widen a job search when the applicant's own titles don't
+// turn up enough jobs they have a real chance at (e.g. "help desk technician" -> "computer support specialist").
+// O*NET lists many titles per occupation; the ones built from the words that occupation's titles use most
+// (computer, support, specialist...) are the plain titles employers post, so those come first.
+const byOccupation = new Map();
+for (const [title, code] of Object.entries(ONET.titles)) {
+  if (!byOccupation.has(code)) byOccupation.set(code, []);
+  byOccupation.get(code).push(title.split("  ")[0]); // "prep cook  preparation cook" -> "prep cook"
+}
+const titleCase = (t) => t.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+export function relatedTitles(jobTitles = [], n = 3) {
+  const have = new Set(jobTitles.map(norm));
+  const out = [];
+  for (const t of jobTitles) {
+    const occ = candidates(t, 1)[0];
+    if (!occ) continue;
+    const list = [...new Set(byOccupation.get(occ.code) || [])]
+      .filter((x) => { const w = x.split(" "); return w.length >= 2 && w.length <= 3 && w.every((y) => y.length >= 4 || y === "it"); });
+    const freq = new Map();
+    for (const x of list) for (const w of new Set(x.split(" "))) freq.set(w, (freq.get(w) || 0) + 1);
+    const score = (x) => x.split(" ").reduce((s, w) => s + freq.get(w), 0) / x.split(" ").length;
+    const picks = list.filter((x) => !have.has(norm(x))).sort((a, b) => score(b) - score(a) || a.length - b.length);
+    for (const x of picks.slice(0, 2)) { if (!have.has(x)) { have.add(x); out.push(titleCase(x)); } }
+  }
+  return out.slice(0, n);
+}

@@ -5,6 +5,7 @@ import "./env.js";
 import { readFileSync } from "node:fs";
 import { geocode, metroFor } from "./geo.js";
 import { totalYears } from "./experience.js";
+import { relatedTitles } from "./onet.js";
 
 const LIMIT = 8;
 
@@ -45,9 +46,23 @@ export function sourcesConfigured() {
 }
 const firstRole = (p) => (p.target_roles || [])[0] || (p.experience || [])[0]?.title || "";
 
-// Every role worth searching: up to three target roles plus the most recent job title.
-export const searchRoles = (p) => [...new Set([...(p.target_roles || []).slice(0, 3), (p.experience || [])[0]?.title]
-  .filter(Boolean).map((r) => String(r).trim()))];
+// Every role worth searching, the applicant's own job ideas first (the titles they told Theo they want),
+// then up to three target roles and the most recent job title. Repeats (any capitalization) are dropped.
+export const searchRoles = (p) => {
+  const seen = new Set();
+  return [...(p.job_interests?.titles || []), ...(p.target_roles || []).slice(0, 3), (p.experience || [])[0]?.title]
+    .filter(Boolean).map((r) => String(r).trim()).filter((r) => r && !seen.has(r.toLowerCase()) && seen.add(r.toLowerCase()));
+};
+
+// Kinds of workplace to search near the applicant (Theo asks which they want). Without a preference: hospitals,
+// which hire for nearly every kind of job, plus IT companies when the applicant's roles or skills are in tech.
+const IT_WORK = /\b(it|tech|technician|computer|help ?desk|desktop|network|software|developer|data|cyber|systems|cloud|support specialist)\b/i;
+const NO_PREFERENCE = /^(any|anywhere|no preference|none|not sure|open|anything)$/i;
+export function workplaces(p) {
+  const chosen = (p.job_interests?.workplaces || []).map((w) => String(w).trim()).filter((w) => w && !NO_PREFERENCE.test(w));
+  if (chosen.length) return chosen.slice(0, 3);
+  return IT_WORK.test([...searchRoles(p), ...(p.skills || [])].join(" ")) ? ["hospital", "IT company"] : ["hospital"];
+}
 
 // Someone starting out (no jobs listed, or under a year in total) gets entry-level searches too,
 // so first-job seekers see fast food, retail, and "hiring now" openings.
@@ -72,10 +87,10 @@ async function searchPlace(city) {
 
 // USAJobs (federal jobs). Free key: https://developer.usajobs.gov/apirequest/
 // Searches both the target role and the most recent job title, so entry-level roles show up too.
-export async function usajobs(p) {
+export async function usajobs(p, roles = searchRoles(p)) {
   const { USAJOBS_API_KEY: key, USAJOBS_EMAIL: email } = process.env;
   if (!key || !email) return [];
-  const keywords = searchRoles(p).slice(0, 2);
+  const keywords = roles.slice(0, 2);
   const where = await searchPlace(p.city);
   const results = await Promise.all(keywords.map((k) => usajobsSearch(k, where, key, email)));
   const seen = new Set();
@@ -108,11 +123,11 @@ async function usajobsSearch(keyword, city, key, email) {
 }
 
 // Adzuna (aggregates many job boards and company sites). Free key: https://developer.adzuna.com/
-export async function adzuna(p) {
+export async function adzuna(p, roles) {
   const { ADZUNA_APP_ID: id, ADZUNA_APP_KEY: key } = process.env;
   if (!id || !key) return [];
   // Search every target role and the most recent job title, plus entry-level searches for first-job seekers.
-  const keywords = [...searchRoles(p), ...(isEntryLevel(p) ? ENTRY_SEARCHES : [])].slice(0, 5);
+  const keywords = (roles || [...searchRoles(p), ...(isEntryLevel(p) ? ENTRY_SEARCHES : [])]).slice(0, 5);
   const where = await searchPlace(p.city);
   const search = async (what) => {
     const qs = new URLSearchParams({
@@ -192,27 +207,44 @@ async function jsearchGet(qs, ttl = SEARCH_TTL) {
   }
 }
 
-export async function jsearch(p) {
-  const key = process.env.JSEARCH_API_KEY;
-  const size = jsearchSize();
-  // The target roles (each search cached for an hour), and for first-job seekers entry-level "hiring now"
-  // searches. A wider net brings in more Indeed, LinkedIn, and Monster listings.
+// The searches for one round. Round 0: the applicant's roles, plus their first role at each kind of workplace they
+// want (hospitals, IT companies...). When too few jobs give them good chances, the Job Matcher widens the search:
+// round 1 tries other common titles for the same work (from O*NET) and their next role at each workplace;
+// rounds 2-4 look at the next pages of results for their main roles. Each search is cached for an hour.
+export const MAX_WIDEN = 4;
+function jsearchQueries(p, widen, size) {
   const roles = searchRoles(p);
+  const places = workplaces(p);
+  const at = (role) => places.map((w) => ({ q: `${role} ${w}`, workplace: w }));
+  if (widen === 0) {
+    const main = (isEntryLevel(p) ? [...roles.slice(0, size.roles - 1), ...ENTRY_SEARCHES] : roles).slice(0, size.roles);
+    return [...main.map((q) => ({ q })), ...(roles[0] ? at(roles[0]).slice(0, size.employers) : [])];
+  }
+  if (widen === 1) return [...relatedTitles(roles.slice(0, 2), 3).map((q) => ({ q })), ...(roles[1] ? at(roles[1]).slice(0, 2) : [])];
+  if (widen <= MAX_WIDEN) return roles.slice(0, 2).map((q) => ({ q, page: widen }));
+  return [];
+}
+
+export async function jsearch(p, { widen = 0 } = {}) {
+  const key = process.env.JSEARCH_API_KEY;
   if (!key) return [];
+  const size = jsearchSize();
   if (!size) { note("jsearch", 0, jsearchPaused()); return []; }
-  const queries = (isEntryLevel(p) ? [...roles.slice(0, size.roles - 1), ...ENTRY_SEARCHES] : roles).slice(0, size.roles);
+  // A wider net brings in more Indeed, LinkedIn, and Monster listings.
+  const queries = jsearchQueries(p, widen, size);
   if (!queries.length) return [];
   const where = await searchPlace(p.city);
-  const one = async (role) => {
+  const one = async ({ q, workplace, page }) => {
     const qs = new URLSearchParams({
-      query: where ? `${role} in ${where}` : role, num_pages: "1", country: "us", date_posted: "month",
+      query: where ? `${q} in ${where}` : q, num_pages: "1", country: "us", date_posted: "month",
       radius: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
+      ...(page > 1 ? { page: String(page) } : {}),
     });
     try {
       const res = await jsearchGet(qs);
       const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
       note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
-      return data.slice(0, 10).map(fromJSearch);
+      return data.slice(0, 10).map((j) => ({ ...fromJSearch(j), ...(workplace ? { workplace } : {}) }));
     } catch (err) {
       note("jsearch", 0, err.message);
       return [];
@@ -232,6 +264,7 @@ function fromJSearch(j) {
     pay_min: yearly || hourly ? toYear(j.job_min_salary) : null, pay_max: yearly || hourly ? toYear(j.job_max_salary) : null,
     summary: (j.job_description || "").slice(0, 300), description: requirementsText(j.job_description), url: j.job_apply_link,
     source: j.job_publisher ? `${j.job_publisher} via Google Jobs` : "Google Jobs",
+    employer_website: /^https?:\/\//.test(j.employer_website || "") ? j.employer_website : null,
   };
 }
 
@@ -275,7 +308,7 @@ export async function employerJobs(p) {
       return data.filter((j) => fold(j.employer_name).includes(name))
         .sort((a, b) => Number(!!own(b)) - Number(!!own(a))) // postings on the employer's own site first
         .slice(0, 6)
-        .map((j) => ({ ...fromJSearch(j), url: own(j)?.apply_link || j.job_apply_link, employer: emp.name,
+        .map((j) => ({ ...fromJSearch(j), url: own(j)?.apply_link || j.job_apply_link, employer: emp.name, workplace: emp.group,
           source: own(j) ? `${emp.name} careers` : `${emp.name} via ${j.job_publisher || "Google Jobs"}` }));
     } catch (err) {
       note("employers", 0, err.message);
@@ -315,8 +348,18 @@ export async function remotive(p) {
 
 // Local = jobs you commute to (USAJobs, Adzuna, Google Jobs). Remote = Remotive.
 // The same opening often appears on several boards, so repeats (same title and company) are dropped.
-export async function liveJobs(p) {
-  const [fed, board, google, remote, featured] = await Promise.all([usajobs(p), adzuna(p), jsearch(p), remotive(p), employerJobs(p)]);
+// `widen` is the search round (see jsearchQueries): round 0 searches every source; round 1 searches other common
+// titles for the same work on the job boards too; later rounds only page further into Google for Jobs.
+export async function liveJobs(p, { widen = 0 } = {}) {
+  const related = widen === 1 ? relatedTitles(searchRoles(p).slice(0, 2), 3) : null;
+  const none = async () => [];
+  const [fed, board, google, remote, featured] = await Promise.all([
+    widen === 0 ? usajobs(p) : related ? usajobs(p, related) : none(),
+    widen === 0 ? adzuna(p) : related ? adzuna(p, related) : none(),
+    jsearch(p, { widen }),
+    widen === 0 ? remotive(p) : none(),
+    widen === 0 ? employerJobs(p) : none(),
+  ]);
   // Take turns between sources so no single one fills the list, then drop repeats (same title and company).
   const lists = [featured, google, board, isEntryLevel(p) ? [] : fed]; // federal listings rarely suit a first job
   const mixed = [];

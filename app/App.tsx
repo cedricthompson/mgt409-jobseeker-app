@@ -68,7 +68,9 @@ export default function App() {
           onTracker={() => setScreen('tracker')}
           onCheckJob={() => setScreen('check')}
           onScorecard={() => setScreen('score')}
-          onMatches={hasMatches && profile && Object.keys(profile).length ? () => setScreen('matches') : undefined}
+          // Applicants who finished before Theo asked what jobs they want answer that first, then get new matches.
+          onMatches={hasMatches && profile && Object.keys(profile).length
+            ? () => setScreen((profile.job_interests as { answered?: boolean } | undefined)?.answered ? 'matches' : 'chat') : undefined}
           onAccount={accountsOn ? () => setScreen('account') : undefined}
           accountEmail={accountEmail}
           onSettings={() => setScreen('settings')}

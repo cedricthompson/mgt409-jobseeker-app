@@ -1,15 +1,33 @@
 // Agent 3: Job Matcher.
-// Step 1 (code, no tokens): gather jobs near the applicant from the sample dataset
-//   and the live sources (USAJobs, Adzuna, Google Jobs, Remotive) in sources.js.
-// Step 2 (one model call): rank the shortlist and explain each match.
+// Only jobs where the applicant has at least a 50% chance of an interview AND at least a 50% chance of an offer
+// are shown. Each round:
+//   1. (code, no tokens) gather jobs near the applicant from the live sources in sources.js (USAJobs, Adzuna,
+//      Google Jobs, Remotive, featured employers, and nearby hospitals / IT companies), or the sample dataset;
+//   2. (one model call) shortlist the new jobs the applicant has the best real chance at, their own job ideas first;
+//   3. (Scorecard agent) score the shortlist and keep the jobs that clear both 50% bars.
+// When fewer than TARGET jobs qualify, the search widens (other common titles for the same work, then more pages
+// of results) for up to ROUNDS_PER_REQUEST rounds. If still none qualify, the app offers "Keep looking", which
+// continues from the next round and skips every job already checked.
 import { readFileSync } from "node:fs";
 import { chat } from "../llm.js";
-import { isEntryLevel, liveJobs, markHiringNow } from "../sources.js";
+import { isEntryLevel, liveJobs, markHiringNow, MAX_WIDEN } from "../sources.js";
 import { geocode, metroFor } from "../geo.js";
 import { SAFETY, accessibility } from "./common.js";
 import { jobFacts } from "./fairness.js";
+import { scorecard } from "./scorecard.js";
 
 const SAMPLE = JSON.parse(readFileSync(new URL("../data/sample-jobs.json", import.meta.url)));
+
+export const MIN_INTERVIEW = 50; // percent chance of an interview
+export const MIN_HIRE = 50; // percent chance of an offer once interviewed
+const TARGET = 6; // stop widening once this many jobs qualify
+const ROUNDS_PER_REQUEST = 3; // keeps one request to about a minute or two
+const SHORTLIST = 20; // jobs scored per round
+const SCORE_BATCH = 12; // the Scorecard takes up to 12 jobs per call
+
+export const qualifies = (c) => c?.predictions?.interview >= MIN_INTERVIEW && c?.predictions?.hire >= MIN_HIRE;
+// Both chances matter, so jobs are ranked by the chance of getting an interview and then the offer.
+const bothChances = (c) => (c.predictions.interview / 100) * (c.predictions.hire / 100);
 
 const wantsRemote = (p) => /remote|any|hybrid|open/i.test(p.work_mode || "");
 
@@ -22,31 +40,30 @@ async function localJobs(p) {
   return near.length ? [...near, ...remote] : SAMPLE;
 }
 
-const SYSTEM = `You are the Job Matcher agent of a job search app. Rank the jobs that best fit the applicant.
-Consider target roles, transferable experience (e.g. shift lead -> supervisor roles), certifications, clearance, pay target, and work mode.
-Include realistic stretch roles that fit the applicant's direction. Never use protected traits.
-If the applicant is starting out (little or no work history), rank entry-level jobs that need no experience first
-(fast food, retail, customer service, warehouse, and similar), especially ones marked hiring_now, and do not include
-jobs that require years of experience or a degree they don't have.
+const SYSTEM = `You are the Job Matcher agent of a job search app. Shortlist the jobs where this applicant has the best
+real chance of BOTH getting an interview and getting the offer. Only jobs where both chances are at least 50% will be shown.
+- The applicant's own job ideas come first: "job_interests.titles" are the jobs they told us they want, and
+  "job_interests.workplaces" the kinds of workplace (for example hospitals or IT companies). Rank jobs that match those
+  titles, or close variations of them, highest. Other jobs are fine when they suit the applicant's experience and
+  direction, unless job_interests.open_to_related is false; then include only close variations of their titles.
+- Favor jobs whose stated requirements the applicant already meets: years of experience, degree, certifications or
+  licenses, and clearance. Skip jobs that need experience, licenses, or degrees they don't have; those rarely lead to an offer.
+- Consider transferable experience (e.g. shift lead -> supervisor roles), pay target, and work mode. Never use protected traits.
+- If the applicant is starting out (little or no work history), favor entry-level jobs that need no experience
+  (fast food, retail, customer service, warehouse, and similar), especially ones marked hiring_now.
 ${SAFETY}
 Reply ONLY with JSON: {"matches": [{"id": string, "fit": "strong" | "good" | "stretch", "why": string, "gaps": [string]}]}
-Return 8 to 12 matches, best first, whenever at least 8 jobs are reasonable fits; return fewer only when fewer fit.
-Favor jobs the applicant is genuinely qualified for: only jobs where they would have a real chance of an interview will be shown.
-Never list the same job twice. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
+Return up to ${SHORTLIST} jobs, best chance first. The Scorecard checks each job's odds next, so include every job the
+applicant could plausibly get; leave out only jobs that clearly don't fit (a required license, degree, or clearance they
+lack, far more years of experience than they have, or work unrelated to their background and goals). Never list the same job twice. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
 
 const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.city, mode: j.work_mode,
   pay: j.pay_min ? `${j.pay_min}-${j.pay_max}` : j.pay_text, exp_years: j.experience_years,
   certs: j.required_certs, clearance: j.clearance, skills: j.skills, source: j.source || "sample", hiring_now: j.hiring_now || undefined,
-  summary: j.source ? j.summary : undefined });
+  workplace: j.workplace, summary: j.source ? j.summary : undefined });
 
-export async function matchJobs({ profile = {}, session, prefs }) {
-  // Real local listings come first. Sample jobs are fictional, so they're only used when
-  // no live local source returns anything (no keys set, offline, or no results).
-  const live = await liveJobs(profile);
-  const local = live.local.length ? live.local : (await localJobs(profile)).map(markHiringNow);
-  const jobs = [...local.slice(0, 40), ...live.remote]; // cap the list so the ranking call stays affordable
+async function shortlist(profile, jobs, { session, prefs }) {
   const byId = Object.fromEntries(jobs.map((j) => [j.id, j]));
-
   const { text } = await chat(
     [
       { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
@@ -56,6 +73,63 @@ export async function matchJobs({ profile = {}, session, prefs }) {
   );
   // One entry per job, even if the model repeats one.
   const seen = new Set();
-  const matches = (JSON.parse(text).matches || []).filter((m) => byId[m.id] && !seen.has(m.id) && seen.add(m.id));
-  return { considered: jobs.length, data: live.local.length ? "live" : "sample", matches: matches.map((m) => ({ ...m, job: byId[m.id] })) };
+  return (JSON.parse(text).matches || []).filter((m) => byId[m.id] && !seen.has(m.id) && seen.add(m.id))
+    .slice(0, SHORTLIST).map((m) => ({ ...m, gaps: Array.isArray(m.gaps) ? m.gaps : [], job: byId[m.id] }));
+}
+
+// Nearby employers of the kinds the applicant wants (hospitals, IT companies...) that are hiring for similar work,
+// so they can reach out directly. Employers where the applicant already has a qualifying job come first.
+function reachOut(jobs, found) {
+  const good = new Set(found.map((m) => String(m.job.company || "").toLowerCase()));
+  const by = new Map();
+  for (const j of jobs) {
+    if (!j.workplace || !j.company) continue;
+    const k = j.company.toLowerCase();
+    const e = by.get(k) || { name: j.company, kind: j.workplace, city: j.city || null, website: null, openings: 0, example: j.title };
+    e.openings += 1;
+    e.website ||= j.employer_website || null;
+    by.set(k, e);
+  }
+  return [...by.values()]
+    .sort((a, b) => Number(good.has(b.name.toLowerCase())) - Number(good.has(a.name.toLowerCase())) || b.openings - a.openings)
+    .slice(0, 8);
+}
+
+const jobKey = (j) => `${j.title}|${j.company}`.toLowerCase().replace(/\s+/g, " ");
+
+export async function matchJobs({ profile = {}, session, prefs, round = 0, exclude = [] }) {
+  const seen = new Set((Array.isArray(exclude) ? exclude : []).map(String));
+  const found = [], gathered = [];
+  let considered = 0, scored = 0, data = "live";
+  const first = Math.max(0, Math.min(Number(round) || 0, MAX_WIDEN + 1));
+  let r = first;
+  for (; r <= MAX_WIDEN && r < first + ROUNDS_PER_REQUEST && found.length < TARGET; r++) {
+    const live = await liveJobs(profile, { widen: r });
+    // Real local listings come first. Sample jobs are fictional, so they're only used when
+    // no live local source returns anything (no keys set, offline, or no results), and are never widened.
+    let pool = [...live.local, ...live.remote];
+    if (r === 0 && !live.local.length) { data = "sample"; pool = [...(await localJobs(profile)).map(markHiringNow), ...live.remote]; }
+    const fresh = pool.filter((j) => !seen.has(j.id) && !seen.has(jobKey(j)));
+    for (const j of fresh) { seen.add(j.id); seen.add(jobKey(j)); }
+    gathered.push(...fresh);
+    considered += fresh.length;
+    if (fresh.length) {
+      const picks = await shortlist(profile, fresh.slice(0, 60), { session, prefs }); // cap keeps the call affordable
+      const batches = [];
+      for (let i = 0; i < picks.length; i += SCORE_BATCH) batches.push(picks.slice(i, i + SCORE_BATCH));
+      const cards = (await Promise.all(batches.map((b) => scorecard({ profile, jobs: b.map((m) => m.job), session, prefs })))).flat();
+      scored += cards.length;
+      const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
+      for (const m of picks) if (qualifies(byId[m.id])) found.push({ ...m, card: byId[m.id] });
+    }
+    if (data === "sample") { r = MAX_WIDEN + 1; break; } // nothing more to search
+  }
+  found.sort((a, b) => bothChances(b.card) - bothChances(a.card));
+  return {
+    matches: found, data, considered, scored,
+    min: { interview: MIN_INTERVIEW, hire: MIN_HIRE },
+    next_round: r <= MAX_WIDEN ? r : null, // where "Keep looking" continues; null when every search has been tried
+    checked: [...seen], // jobs already checked, so "Keep looking" only scores new ones
+    reach_out: reachOut(gathered, found),
+  };
 }
