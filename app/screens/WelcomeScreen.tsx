@@ -3,7 +3,7 @@ import { colors, radius, space, type, themed } from '../theme';
 import { coachFor } from '../team';
 import Avatar from '../components/Avatar';
 import { APP_NAME, APP_TAGLINE } from '../brand';
-import Wordmark from '../components/Wordmark';
+import Brand from '../components/Brand';
 import { START_METHODS, StartMethod } from '../start';
 import { PROMO_MINUTES } from '../components/Promo';
 import MiniScorecard from '../components/MiniScorecard';
@@ -47,11 +47,7 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
       <ScrollView contentContainerStyle={styles.page}>
         {/* Top bar */}
         <View style={styles.topBar}>
-          <View style={styles.brand}>
-            <Image source={require('../assets/logo-icon.png')} style={styles.brandIcon} resizeMode="contain"
-              accessibilityLabel="Chart Academy" alt="Chart Academy" />
-            <Wordmark size={30} />
-          </View>
+          <Brand size={30} />
           <View style={styles.topLinks}>
             <Pressable onPress={onScorecard} accessibilityRole="button" accessibilityLabel="See the Predictability Scorecard" style={styles.topLink}>
               <Text style={styles.topLinkText}>Scorecard</Text>
@@ -198,8 +194,6 @@ const styles = themed(() => {
   safe: { flex: 1, backgroundColor: colors.bg },
   page: { padding: space.lg, gap: space.xl, maxWidth: 1120, width: '100%', alignSelf: 'center' },
   topBar: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', rowGap: space.xs },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  brandIcon: { width: 44, height: 44 },
   topLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, marginLeft: -space.sm },
   textLink: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   textLinkText: { fontSize: 18, fontWeight: '700', color: colors.blue, textDecorationLine: 'underline' },

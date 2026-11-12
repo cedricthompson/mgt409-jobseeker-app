@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, Text, View } fr
 import { post, Prefs, Profile } from '../api';
 import { TrackedJob } from '../tracker';
 import { colors, radius, space, type, themed } from '../theme';
+import Brand from '../components/Brand';
 
 export type CoachTask = 'resume' | 'cover_letter' | 'follow_up' | 'interview_prep';
 export const COACH_TASKS: { task: CoachTask; label: string }[] = [
@@ -41,6 +42,7 @@ export default function CoachScreen({ task, item, profile, prefs, onBack }: {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
+        <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to my applications" style={styles.back}>
           <Text style={styles.backText}>‹ My applications</Text>
         </Pressable>

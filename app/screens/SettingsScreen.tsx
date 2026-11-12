@@ -2,6 +2,7 @@ import * as Speech from 'expo-speech';
 import { Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
 import { Prefs } from '../api';
 import { colors, radius, space, type, themed } from '../theme';
+import Brand from '../components/Brand';
 
 // Languages common among job seekers in DC and NYC. The coach replies in the chosen language;
 // read-aloud uses the matching voice. App buttons and labels stay in English for now.
@@ -42,6 +43,7 @@ export default function SettingsScreen({ prefs, onChange, onBack }: { prefs: Pre
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
+        <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>

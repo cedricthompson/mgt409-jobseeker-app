@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Card, ChancesHeadline } from '../components/Chances';
 import WhyScore from '../components/WhyScore';
 import SearchElsewhere from '../components/SearchElsewhere';
+import Brand from '../components/Brand';
 
 type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job; card?: Card };
@@ -115,6 +116,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
+        <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to profile chat" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>

@@ -3,6 +3,7 @@ import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, Text, 
 import { isDue, Outcome, Stage, STAGES, TrackedJob, useTracker } from '../tracker';
 import { colors, radius, space, type, themed } from '../theme';
 import { COACH_TASKS, CoachTask } from './CoachScreen';
+import Brand from '../components/Brand';
 
 const OUTCOMES: Outcome[] = ['Accepted', 'Rejected', 'Withdrew', 'No response'];
 const NEXT: Partial<Record<Stage, Stage>> = { Saved: 'Applied', Applied: 'Screening', Screening: 'Interviewing', Interviewing: 'Offer' };
@@ -103,6 +104,7 @@ export default function TrackerScreen({ onBack, onCoach }: { onBack: () => void;
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
+        <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>

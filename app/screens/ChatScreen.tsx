@@ -9,6 +9,7 @@ import MicButton, { canDictate } from '../components/MicButton';
 import { colors, radius, space, type, themed } from '../theme';
 import { coachFor } from '../team';
 import Avatar from '../components/Avatar';
+import Brand from '../components/Brand';
 
 type Msg = { role: 'user' | 'assistant'; content: string; why?: string; agent?: string };
 type ChatReply = { agent: 'intake' | 'gap'; reply: string; why?: string; profile: Profile; missing: string[]; done: boolean };
@@ -67,6 +68,7 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
+          <Brand />
           <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
             <Text style={styles.backText}>‹ Back</Text>
           </Pressable>

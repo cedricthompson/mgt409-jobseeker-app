@@ -10,6 +10,7 @@ import { API_URL, session, Prefs, Profile } from '../api';
 import MicButton from '../components/MicButton';
 import { voiceFor } from './SettingsScreen';
 import { LINKEDIN_STEPS, SPEAK_PROMPTS, START_METHODS, StartMethod } from '../start';
+import Brand from '../components/Brand';
 
 
 type ImportResult = { profile: Profile; summary: string; missing: string[] };
@@ -98,6 +99,7 @@ export default function ImportScreen({ prefs, method, onBack, onContinue }: {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
+        <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to home" style={styles.back}>
           <Text style={styles.backText}>‹ Home</Text>
         </Pressable>

@@ -7,6 +7,7 @@ import { colors, radius, space, type, themed } from '../theme';
 import { useTracker } from '../tracker';
 import { Card, ChancesHeadline, ScoreDetails } from '../components/Chances';
 import SearchElsewhere from '../components/SearchElsewhere';
+import Brand from '../components/Brand';
 
 type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; url?: string; source?: string; summary?: string };
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
@@ -44,6 +45,7 @@ export default function CheckJobScreen({ profile, prefs, onBack, onTracker, onBu
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>

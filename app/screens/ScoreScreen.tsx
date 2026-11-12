@@ -2,7 +2,7 @@
 // The sample data lives in sampleScorecard.ts (shared with the mini scorecard on the opening page).
 import { Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { colors, space, type, themed } from '../theme';
-import Wordmark from '../components/Wordmark';
+import Brand from '../components/Brand';
 import { Meter, Ring } from '../components/ScoreRing';
 import FitBreakdown, { Area, points } from '../components/FitBreakdown';
 import { CHANCES, FIT, OVERALL, SAMPLE_JOB, STAY } from '../sampleScorecard';
@@ -21,7 +21,7 @@ export default function ScoreScreen({ onBack, onStart, onCheckJob }: {
           <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to home" style={styles.back}>
             <Text style={styles.backText}>‹ Home</Text>
           </Pressable>
-          <Wordmark size={26} />
+          <Brand size={26} />
         </View>
 
         <View style={{ gap: space.sm }}>

@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, Text, TextInput
 import { Prefs, Profile } from '../api';
 import { deleteAccount, signIn, signOut, signUp } from '../account';
 import { colors, radius, space, type, themed } from '../theme';
+import Brand from '../components/Brand';
 
 type Loaded = { profile: Profile; prefs: Prefs };
 
@@ -32,6 +33,7 @@ export default function AccountScreen({ email, onBack, onSignedIn, onSignedOut }
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
