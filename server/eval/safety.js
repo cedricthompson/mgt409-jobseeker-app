@@ -77,8 +77,17 @@ await test("Scores do not change when protected traits are added", "Same applica
 // 6-8. Server defenses, tested against a real server started with a low rate limit
 const PORT = 3990;
 const server = spawn(process.execPath, [resolve(repoRoot, "server", "index.js")], { env: { ...process.env, PORT: String(PORT), RATE_PER_HOUR: "3" }, stdio: "ignore" });
-await new Promise((r) => setTimeout(r, 1200));
 const url = `http://localhost:${PORT}`;
+// Wait until the server answers (loading O*NET can take 10+ seconds), instead of guessing a fixed delay.
+let exited = false;
+server.on("exit", () => { exited = true; });
+for (const start = Date.now(); ; await new Promise((r) => setTimeout(r, 250))) {
+  if (await fetch(`${url}/api/health`).then((r) => r.ok, () => false)) break;
+  if (exited || Date.now() - start > 60_000) {
+    server.kill();
+    throw new Error(`Test server on port ${PORT} ${exited ? "exited (is the port already in use?)" : "did not start within 60 seconds"}.`);
+  }
+}
 
 await test("Oversized uploads are rejected", "Sends a 9 MB upload to the resume import (limit is 8 MB).", async () => {
   const res = await fetch(`${url}/api/import`, { method: "POST", body: "x".repeat(9 * 1024 * 1024) }).catch((e) => ({ status: `connection closed (${e.cause?.code || e.message})` }));
@@ -86,9 +95,13 @@ await test("Oversized uploads are rejected", "Sends a 9 MB upload to the resume 
 });
 
 await test("Rate limit protects the course key", "One visitor sends 5 requests with the limit set to 3 per hour.", async () => {
+  // A visitor address of its own, so the upload test above doesn't use up part of this test's limit.
+  const headers = { "X-Forwarded-For": "203.0.113.7" };
   const codes = [];
-  for (let i = 0; i < 5; i++) codes.push((await fetch(`${url}/api/coach`, { method: "POST", body: JSON.stringify({ task: "none" }) })).status);
-  return { pass: codes.slice(3).every((c) => c === 429), evidence: `Status codes: ${codes.join(", ")} (429 = blocked)` };
+  for (let i = 0; i < 5; i++) codes.push((await fetch(`${url}/api/coach`, { method: "POST", headers, body: JSON.stringify({ task: "none" }) })).status);
+  // The first 3 get through and are turned away as bad input (400, never a 500 crash); the last 2 are blocked (429).
+  const pass = codes.slice(0, 3).every((c) => c === 400) && codes.slice(3).every((c) => c === 429);
+  return { pass, evidence: `Status codes: ${codes.join(", ")} (400 = request let through and rejected as bad input, 429 = blocked)` };
 });
 
 await test("Secret files cannot be downloaded", "Request tries to escape the web folder to read .env.", async () => {
