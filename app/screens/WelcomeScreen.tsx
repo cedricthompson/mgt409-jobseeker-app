@@ -58,25 +58,32 @@ function TypedHeadline({ animate, onDone }: { animate: boolean; onDone: () => vo
   );
 }
 
+// Three quick steps under the headline.
+const HOW_STEPS = [
+  'Upload your resume.',
+  'Tell our coaches what you are looking for: the jobs, pay, and commute you want.',
+  'Sit back while your top matches appear.',
+];
+
 // The line under the headline fades up once the headline has finished typing.
 // It is in the page from the start, so screen readers can read it right away.
-function FadeUp({ show, animate, children }: { show: boolean; animate: boolean; children: React.ReactNode }) {
+function FadeUp({ show, animate, delay = 0, children }: { show: boolean; animate: boolean; delay?: number; children: React.ReactNode }) {
   const t = useRef(new Animated.Value(animate ? 0 : 1)).current;
   useEffect(() => {
     if (!animate) { t.setValue(1); return; }
-    if (show) Animated.timing(t, { toValue: 1, duration: 1000, useNativeDriver: Platform.OS !== 'web' }).start();
+    if (show) Animated.timing(t, { toValue: 1, duration: 1000, delay, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [show, animate]);
   const translateY = t.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
   return <Animated.View style={{ opacity: t, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
-// The sample scorecard flies in from the right as the page opens.
-function FlyIn({ animate, children }: { animate: boolean; children: React.ReactNode }) {
+// The sample scorecard flies in from the right last, after the headline, the intro, and the three steps.
+function FlyIn({ show, animate, delay = 0, children }: { show: boolean; animate: boolean; delay?: number; children: React.ReactNode }) {
   const t = useRef(new Animated.Value(animate ? 0 : 1)).current;
   useEffect(() => {
     if (!animate) { t.setValue(1); return; }
-    Animated.timing(t, { toValue: 1, duration: 1200, delay: 500, useNativeDriver: Platform.OS !== 'web' }).start();
-  }, [animate]);
+    if (show) Animated.timing(t, { toValue: 1, duration: 1200, delay, useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [show, animate]);
   const translateX = t.interpolate({ inputRange: [0, 1], outputRange: [160, 0] });
   return <Animated.View style={{ opacity: t, transform: [{ translateX }] }}>{children}</Animated.View>;
 }
@@ -122,15 +129,23 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
           <View style={[styles.section, wideHero && { flex: 1.3 }]}>
             <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()}</Text>
             <TypedHeadline animate={animate} onDone={() => setTyped(true)} />
+            {/* After the headline types: the intro, then the three steps one by one, then the scorecard flies in. */}
             <FadeUp show={typed} animate={animate}>
-              <Text style={styles.lead}>
-                <Text style={styles.bold}>Our job Predictability Scorecard is all you need to manage your job search.</Text>{' '}
-                Apply to jobs that get you closer to your dream.
-              </Text>
+              <Text style={[styles.lead, styles.bold]}>Let our Predictability Scorecard help you land your dream job.</Text>
             </FadeUp>
+            <View style={styles.howList} accessibilityRole="list">
+              {HOW_STEPS.map((step, i) => (
+                <FadeUp key={step} show={typed} animate={animate} delay={700 + i * 600}>
+                  <View style={styles.howStep} accessibilityRole="listitem">
+                    <Text style={styles.howNum} accessibilityLabel={`Step ${i + 1}.`}>{i + 1}</Text>
+                    <Text style={styles.howText}>{step}</Text>
+                  </View>
+                </FadeUp>
+              ))}
+            </View>
           </View>
           <View style={wideHero ? { flex: 1, maxWidth: 400 } : { width: '100%', maxWidth: 440, alignSelf: 'center' }}>
-            <FlyIn animate={animate}><MiniScorecard onOpen={onScorecard} /></FlyIn>
+            <FlyIn show={typed} animate={animate} delay={700 + HOW_STEPS.length * 600 + 300}><MiniScorecard onOpen={onScorecard} /></FlyIn>
           </View>
         </View>
 
@@ -256,6 +271,11 @@ const styles = themed(() => {
   hero: { fontSize: 48, lineHeight: 54, fontWeight: '900', color: colors.ink, letterSpacing: -1 },
   lead: { fontSize: 20, lineHeight: 30, color: colors.muted },
   bold: { fontWeight: '700', color: colors.ink },
+  howList: { gap: space.sm },
+  howStep: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  howNum: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.blue, color: colors.onAccent, fontSize: 17, fontWeight: '800',
+    textAlign: 'center', lineHeight: 32, overflow: 'hidden' },
+  howText: { flex: 1, fontSize: 19, lineHeight: 28, color: colors.ink, paddingTop: 2 },
   ctaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   cta: { backgroundColor: colors.blue, minHeight: 56, borderRadius: 999, paddingHorizontal: 32, alignItems: 'center', justifyContent: 'center' },
   ctaText: { color: colors.onAccent, fontSize: 20, fontWeight: '700' },
