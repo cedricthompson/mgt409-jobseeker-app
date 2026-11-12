@@ -13,7 +13,7 @@ import { scorecard } from "./agents/scorecard.js";
 import { coach } from "./agents/coach.js";
 import { checkJob } from "./agents/jobreader.js";
 import { accountsEnabled, deleteMine, getMine, saveMine, signIn, signOut, signUp } from "./accounts.js";
-import { prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
+import { jsearchQuota, prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
 
 const PORT = process.env.PORT || 3001;
 const STARTED = new Date().toISOString(); // shown by /api/health, to confirm a restart picked up new settings
@@ -55,7 +55,7 @@ async function readJson(req) {
 
 const routes = {
   "GET /api/health": async () => ({ ok: true, started: STARTED, version: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 7),
-    database: process.env.DATABASE_URL ? "set" : "missing", accounts: accountsEnabled(), sources: sourcesConfigured(), last: sourceStatus }),
+    database: process.env.DATABASE_URL ? "set" : "missing", accounts: accountsEnabled(), sources: sourcesConfigured(), jsearch_quota: jsearchQuota, last: sourceStatus }),
   "GET /api/usage": async () => usage,
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),

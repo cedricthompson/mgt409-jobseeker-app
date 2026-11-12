@@ -15,12 +15,16 @@ const searchCache = new Map();
 // Searches still running, so a match request that arrives during a background prefetch
 // (see prefetchJobs) waits for that search instead of starting a second one.
 const inFlight = new Map();
-async function getJson(url, { ttl = SEARCH_TTL, ...options } = {}, ms = 6000) {
+// `before` runs (and is awaited) only when a real request is about to go out, never for a cached answer;
+// `onResponse` sees every real response, including errors.
+async function getJson(url, { ttl = SEARCH_TTL, before, onResponse, ...options } = {}, ms = 6000) {
   const hit = searchCache.get(url);
   if (hit && Date.now() - hit.at < ttl) return hit.data;
   if (inFlight.has(url)) return inFlight.get(url);
   const request = (async () => {
+    await before?.();
     const res = await fetch(url, { ...options, signal: AbortSignal.timeout(ms) });
+    onResponse?.(res);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`);
     const data = await res.json();
     searchCache.set(url, { at: Date.now(), data });
@@ -137,31 +141,75 @@ export async function adzuna(p) {
 // JSearch (Google for Jobs). Brings in listings posted on LinkedIn, Indeed, Glassdoor, ZipRecruiter,
 // and company career sites, each with its apply link. Indeed and LinkedIn do not offer public job
 // search APIs and do not allow scraping, so this is the supported way to include their listings.
-// Free key (about 200 searches a month): https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
-// One search per match request, cached for an hour, to stay inside the free plan.
+// https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
+
+// ---- JSearch plan: monthly allowance and speed limit ----
+// RapidAPI sends the plan's monthly allowance with every response (x-ratelimit-requests-limit / -remaining /
+// -reset), so the app follows whichever plan is bought instead of a number written into the code.
+// Shown on /api/health. Paid plans charge for each request past the allowance, so JSearch pauses when only
+// 5% is left (the other sources keep working) and picks up again when the allowance resets.
+export const jsearchQuota = { limit: null, remaining: null, resets_at: null, checked_at: null };
+function readQuota(res) {
+  const h = res.headers;
+  if (!h.has("x-ratelimit-requests-limit") || !h.has("x-ratelimit-requests-remaining")) return;
+  const reset = Number(h.get("x-ratelimit-requests-reset")); // seconds until the allowance resets
+  Object.assign(jsearchQuota, {
+    limit: Number(h.get("x-ratelimit-requests-limit")), remaining: Number(h.get("x-ratelimit-requests-remaining")),
+    resets_at: Number.isFinite(reset) && reset > 0 ? new Date(Date.now() + reset * 1000).toISOString() : null,
+    checked_at: new Date().toISOString(),
+  });
+}
+// Searches per match. Larger plans (Pro and up) search every target role plus more featured employers;
+// until the first response shows the plan, or once three quarters of the month's allowance is used, the
+// app searches like the free plan did.
+const JSEARCH_SIZES = { small: { roles: 3, employers: 2 }, large: { roles: 5, employers: 4 } };
+function jsearchSize() {
+  const { limit, remaining, resets_at } = jsearchQuota;
+  if (limit == null) return JSEARCH_SIZES.small;
+  if (resets_at && Date.now() > Date.parse(resets_at)) return JSEARCH_SIZES.small; // new month: refreshed on the next reply
+  if (remaining <= Math.max(25, limit * 0.05)) return null; // nearly used up: pause until it resets
+  return limit >= 2000 && remaining > limit * 0.25 ? JSEARCH_SIZES.large : JSEARCH_SIZES.small;
+}
+const jsearchPaused = () => `JSearch paused to avoid overage charges: ${jsearchQuota.remaining} of ${jsearchQuota.limit} requests left this month.`;
+// The plan allows 5 requests a second; requests start at least 210 ms apart (under 5 a second) even when
+// several applicants search at once. Cached answers skip the wait.
+let nextJsearchSlot = 0;
+function jsearchTurn() {
+  const now = Date.now();
+  const at = Math.max(now, nextJsearchSlot);
+  nextJsearchSlot = at + 210;
+  return at > now ? new Promise((r) => setTimeout(r, at - now)) : undefined;
+}
+// One JSearch search. JSearch is slower than the others (it searches Google live), so it gets more time.
+// In November 2026 JSearch moved search to /search-v2 (jobs under data.jobs); the old /search is kept as a fallback.
+async function jsearchGet(qs, ttl = SEARCH_TTL) {
+  const options = { ttl, before: jsearchTurn, onResponse: readQuota,
+    headers: { "x-rapidapi-key": process.env.JSEARCH_API_KEY, "x-rapidapi-host": "jsearch.p.rapidapi.com" } };
+  try { return await getJson(`https://jsearch.p.rapidapi.com/search-v2?${qs}`, options, 20000); }
+  catch (err) {
+    if (!/HTTP 404/.test(err.message)) throw err;
+    return getJson(`https://jsearch.p.rapidapi.com/search?${qs}&page=1`, options, 20000);
+  }
+}
+
 export async function jsearch(p) {
   const key = process.env.JSEARCH_API_KEY;
-  // Up to three searches per match (each cached for an hour): the target roles, and for first-job seekers
-  // one entry-level "hiring now" search. A wider net brings in more Indeed, LinkedIn, and Monster listings.
+  const size = jsearchSize();
+  // The target roles (each search cached for an hour), and for first-job seekers entry-level "hiring now"
+  // searches. A wider net brings in more Indeed, LinkedIn, and Monster listings.
   const roles = searchRoles(p);
-  const queries = (isEntryLevel(p) ? [...roles.slice(0, 2), ENTRY_SEARCHES[0]] : roles).slice(0, 3);
-  if (!key || !queries.length) return [];
+  if (!key) return [];
+  if (!size) { note("jsearch", 0, jsearchPaused()); return []; }
+  const queries = (isEntryLevel(p) ? [...roles.slice(0, size.roles - 1), ...ENTRY_SEARCHES] : roles).slice(0, size.roles);
+  if (!queries.length) return [];
   const where = await searchPlace(p.city);
   const one = async (role) => {
     const qs = new URLSearchParams({
       query: where ? `${role} in ${where}` : role, num_pages: "1", country: "us", date_posted: "month",
       radius: String(Math.max(10, Math.round((p.commute_minutes || 30) * 1.3))), // rough km reachable in the commute
     });
-    const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" };
     try {
-      // JSearch is slower than the others (it searches Google live), so it gets more time.
-      // In November 2026 JSearch moved search to /search-v2 (jobs under data.jobs); the old /search is kept as a fallback.
-      let res;
-      try { res = await getJson(`https://jsearch.p.rapidapi.com/search-v2?${qs}`, { headers }, 20000); }
-      catch (err) {
-        if (!/HTTP 404/.test(err.message)) throw err;
-        res = await getJson(`https://jsearch.p.rapidapi.com/search?${qs}&page=1`, { headers }, 20000);
-      }
+      const res = await jsearchGet(qs);
       const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
       note("jsearch", data.length, res.status && res.status !== "OK" ? String(res.error?.message || res.message || res.status) : null);
       return data.slice(0, 10).map(fromJSearch);
@@ -190,14 +238,13 @@ function fromJSearch(j) {
 // ---- Featured employers (data/employers.json), searched directly through Google for Jobs ----
 // Employers like CACI post to Google for Jobs from their own careers sites, so their openings come with apply
 // links to the employer. (Their Workday job pages disallow automated reading, so we don't read those directly.)
-// To stay inside the free JSearch plan, each search picks at most 2 employers that hire in the applicant's metro
-// and best fit their target roles, and reuses each employer's results for a day.
+// Each search picks the employers that hire in the applicant's metro and best fit their target roles (2 on a
+// small JSearch plan, 4 on Pro and up; see jsearchSize), and reuses each employer's results for a day.
 const EMPLOYERS = JSON.parse(readFileSync(new URL("./data/employers.json", import.meta.url))).employers;
 const EMPLOYER_TTL = 24 * 3600e3;
-const MAX_EMPLOYERS = 2;
 const fold = (t) => String(t || "").toLowerCase();
 
-export async function pickEmployers(p) {
+export async function pickEmployers(p, max = JSEARCH_SIZES.small.employers) {
   const metro = metroFor(await geocode(p.city))?.name;
   const words = fold([...(p.target_roles || []), ...(p.experience || []).map((e) => e.title), ...(p.skills || [])].join(" "));
   return EMPLOYERS
@@ -205,20 +252,21 @@ export async function pickEmployers(p) {
     .map((e) => ({ e, fit: e.keywords.filter((k) => new RegExp(`\\b${k}`, "i").test(words)).length }))
     .filter((x) => x.fit > 0)
     .sort((a, b) => b.fit - a.fit)
-    .slice(0, MAX_EMPLOYERS)
+    .slice(0, max)
     .map((x) => x.e);
 }
 
 export async function employerJobs(p) {
   const key = process.env.JSEARCH_API_KEY;
   if (!key) return [];
-  const [employers, where] = await Promise.all([pickEmployers(p), searchPlace(p.city)]);
+  const size = jsearchSize();
+  if (!size) { note("employers", 0, jsearchPaused()); return []; }
+  const [employers, where] = await Promise.all([pickEmployers(p, size.employers), searchPlace(p.city)]);
   const role = searchRoles(p)[0] || "";
-  const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "jsearch.p.rapidapi.com" };
   const one = async (emp) => {
     const qs = new URLSearchParams({ query: `${role} ${emp.query} jobs${where ? ` in ${where}` : ""}`.trim(), num_pages: "1", country: "us", date_posted: "month" });
     try {
-      const res = await getJson(`https://jsearch.p.rapidapi.com/search-v2?${qs}`, { headers, ttl: EMPLOYER_TTL }, 20000);
+      const res = await jsearchGet(qs, EMPLOYER_TTL);
       const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
       // Keep only that employer's own listings (searches can return other companies too).
       const name = fold(emp.name).split(" ")[0];
