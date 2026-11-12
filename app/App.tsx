@@ -6,7 +6,7 @@ import { applyTheme, isDark } from './theme';
 import WelcomeScreen from './screens/WelcomeScreen';
 import ImportScreen from './screens/ImportScreen';
 import ChatScreen from './screens/ChatScreen';
-import MatchesScreen, { MATCHES_KEY } from './screens/MatchesScreen';
+import MatchesScreen, { MATCHES_KEY, OLD_MATCHES_KEY } from './screens/MatchesScreen';
 import TrackerScreen from './screens/TrackerScreen';
 import CoachScreen, { CoachTask } from './screens/CoachScreen';
 import { TrackedJob } from './tracker';
@@ -40,7 +40,7 @@ export default function App() {
   // The profile and settings are kept on this device, so returning applicants don't start over.
   // When signed in, they also come from the account, so changes made on another device show up here.
   useEffect(() => {
-    AsyncStorage.getItem(MATCHES_KEY).then((m) => setHasMatches(!!m));
+    AsyncStorage.multiGet([MATCHES_KEY, OLD_MATCHES_KEY]).then(([[, m], [, old]]) => setHasMatches(!!(m || old)));
     AsyncStorage.multiGet(['profile.v1', 'prefs.v1']).then(([[, p], [, pr]]) => {
       if (p) setProfileState(JSON.parse(p));
       if (pr) setPrefs(JSON.parse(pr), false);

@@ -11,7 +11,9 @@ import SearchElsewhere from '../components/SearchElsewhere';
 type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
 const FIT_LABEL = { strong: 'Strong match', good: 'Good match', stretch: 'Stretch' };
-export const MATCHES_KEY = 'matches.v2'; // v2: odds retuned, so older saved scorecards are scored again
+export const MATCHES_KEY = 'matches.v2';
+// Matches saved before the odds were retuned. They're kept and scored again with the new rules, not dropped.
+export const OLD_MATCHES_KEY = 'matches.v1';
 // A job only counts as a match when the applicant has at least this chance of an interview.
 // Jobs below it are kept as "long shots", hidden unless the applicant asks to see them.
 export const MATCH_MIN_INTERVIEW = 50;
@@ -31,6 +33,15 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   const [error, setError] = useState('');
   const started = useRef(false);
 
+  const rescore = async (list: Match[], isSample: boolean) => {
+    setStep('Scoring each job…');
+    const s = await post<Card[]>('/api/scorecard', { profile, prefs, jobs: list.map((x) => x.job) });
+    const byId = Object.fromEntries(s.map((c) => [c.id, c]));
+    setCards(byId);
+    setStep('');
+    AsyncStorage.setItem(MATCHES_KEY, JSON.stringify({ profile: JSON.stringify(profile), matches: list, cards: byId, sample: isSample, at: Date.now() }));
+  };
+
   // The last matches for this profile are kept on the device, so they're still here after leaving this
   // screen or reloading the page. "Search again" runs a fresh search.
   const search = async (fresh: boolean) => {
@@ -42,16 +53,19 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
           setMatches(saved.matches); setCards(saved.cards || {}); setSample(!!saved.sample); setStep('');
           return;
         }
+        const old = JSON.parse((await AsyncStorage.getItem(OLD_MATCHES_KEY)) || 'null');
+        if (old?.profile === JSON.stringify(profile) && old.matches?.length) {
+          // Show them right away with their old scores, in case scoring again fails (offline).
+          setMatches(old.matches); setCards(old.cards || {}); setSample(!!old.sample);
+          await rescore(old.matches, !!old.sample);
+          AsyncStorage.removeItem(OLD_MATCHES_KEY);
+          return;
+        }
       }
       setMatches([]); setCards({}); setStep('Finding jobs near you…');
       const m = await post<{ matches: Match[]; data: string }>('/api/match', { profile, prefs });
       setMatches(m.matches); setSample(m.data === 'sample');
-      setStep('Scoring each job…');
-      const s = await post<Card[]>('/api/scorecard', { profile, prefs, jobs: m.matches.map((x) => x.job) });
-      const byId = Object.fromEntries(s.map((c) => [c.id, c]));
-      setCards(byId);
-      setStep('');
-      AsyncStorage.setItem(MATCHES_KEY, JSON.stringify({ profile: JSON.stringify(profile), matches: m.matches, cards: byId, sample: m.data === 'sample', at: Date.now() }));
+      await rescore(m.matches, m.data === 'sample');
     } catch (e) {
       setError(`Something went wrong. ${(e as Error).message}`); setStep('');
     }
