@@ -64,10 +64,10 @@ real chance of BOTH getting an interview and getting the offer. Only jobs where 
 - If the applicant is starting out (little or no work history), favor entry-level jobs that need no experience
   (fast food, retail, customer service, warehouse, and similar), especially ones marked hiring_now.
 ${SAFETY}
-Reply ONLY with JSON: {"matches": [{"id": string, "fit": "strong" | "good" | "stretch", "why": string, "gaps": [string]}]}
-Return up to ${SHORTLIST} jobs, best chance first. The Scorecard checks each job's odds next, so include every job the
+Reply ONLY with JSON: {"ids": [string]}, the job ids, best chance first. Nothing else: the Scorecard explains each job.
+Return up to ${SHORTLIST} jobs. The Scorecard checks each job's odds next, so include every job the
 applicant could plausibly get; leave out only jobs that clearly don't fit (a required license, degree, or clearance they
-lack, far more years of experience than they have, or work unrelated to their background and goals). Never list the same job twice. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
+lack, far more years of experience than they have, or work unrelated to their background and goals). Never list the same job twice.`;
 
 const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.city, mode: j.work_mode,
   pay: j.pay_min ? `${j.pay_min}-${j.pay_max}` : j.pay_text, exp_years: j.experience_years,
@@ -83,10 +83,11 @@ async function shortlist(profile, jobs, { session, prefs }) {
     ],
     { json: true, agent: "matcher", session, effort: "low" }
   );
-  // One entry per job, even if the model repeats one.
-  const seen = new Set();
-  return (JSON.parse(text).matches || []).filter((m) => byId[m.id] && !seen.has(m.id) && seen.add(m.id))
-    .slice(0, SHORTLIST).map((m) => ({ ...m, gaps: Array.isArray(m.gaps) ? m.gaps : [], job: byId[m.id] }));
+  // One entry per job, even if the model repeats one. Speed: the model returns only ids (writing a reason for
+  // 20 jobs took about 30 s); each job's reason and gaps come from its scorecard instead.
+  const out = JSON.parse(text);
+  const ids = (Array.isArray(out.ids) ? out.ids : (out.matches || []).map((m) => m?.id)).map(String);
+  return [...new Set(ids)].filter((id) => byId[id]).slice(0, SHORTLIST).map((id) => ({ id, job: byId[id] }));
 }
 
 // Nearby employers of the kinds the applicant wants (hospitals, IT companies...) that are hiring for similar work,
@@ -150,7 +151,12 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
       step.score = t2();
       scored += cards.length;
       const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
-      for (const m of picks) if (qualifies(byId[m.id])) found.push({ ...m, card: byId[m.id] });
+      for (const m of picks) {
+        const card = byId[m.id];
+        if (!qualifies(card)) continue;
+        const gaps = (card.requirements || []).filter((x) => !x.have).map((x) => x.skill).slice(0, 3);
+        found.push({ ...m, fit: card.overall >= 80 ? "strong" : "good", why: "", gaps, card }); // the card shows its explanation
+      }
     }
     timing.push({ ...step, jobs: fresh.length });
     if (data === "sample") { r = MAX_WIDEN + 1; break; } // nothing more to search

@@ -195,7 +195,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
               </View>
 
               <ChancesHeadline card={c} />
-              <Text style={type.body}>{why}</Text>
+              {why ? <Text style={type.body}>{why}</Text> : null}
               {gaps.length > 0 && <Text style={type.small}>To close the gap: {gaps.map((g) => g.replace(/\.$/, '')).join('; ')}.</Text>}
 
               {c && expanded && <WhyScore card={c} />}
