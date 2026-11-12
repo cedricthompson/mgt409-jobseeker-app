@@ -96,19 +96,20 @@ const range = (lo, hi) => (n) => Math.max(lo, Math.min(hi, Math.round(n)));
 const toOdds = (p) => p / (1 - p), toP = (o) => o / (1 + o);
 // Fit changes the odds, not just the percentage. The family's starting point is the average applicant, and
 // most applicant pools include many people who don't meet the requirements, so a strong match does far better:
-// at a typical fit (55) you get the family's average odds; every 10 points higher multiplies your odds of an
-// interview by about 1.5 (a perfect fit, about 6 times), and every 10 points lower divides them the same way.
-// Getting the offer once interviewed depends on fit too, but less (about 2.5 times from typical to perfect).
-const TYPICAL_FIT = 0.55;
+// at a typical fit (55) you get the family's average odds; every 10 points higher about doubles your odds of an
+// interview (a perfect fit, about 23 times), and every 10 points lower halves them. So a well-qualified applicant
+// (fit in the 70s or 80s) usually has a better-than-even chance of an interview, and a weak fit a small one.
+// Getting the offer once interviewed depends on fit too, a little less (about 1.5 times per 10 points).
+const TYPICAL_FIT = 0.55, INTERVIEW_SLOPE = 7, HIRE_SLOPE = 4;
 export function predict(labels, fit, parts) {
   const fam = FAMILIES[labels.family] || FAMILIES.other;
   const comp = COMPETITION[labels.competition] ?? 1, level = LEVEL[labels.level] ?? 1;
   const f = fit / 100; // overall fit, 0 to 1
   const base = Math.min(0.9, (fam.interview / 100) * comp);
-  const interview = range(2, 90)(100 * toP(toOdds(base) * Math.exp(4 * (f - TYPICAL_FIT))));
+  const interview = range(2, 95)(100 * toP(toOdds(base) * Math.exp(INTERVIEW_SLOPE * (f - TYPICAL_FIT))));
   // Each chance is its own 0-100% score, not a share of one total: "hire" is your chance of an offer once you
   // interview, so it is not capped by (or multiplied into) the interview chance.
-  const hire = range(1, 90)(100 * toP(toOdds(fam.hire) * Math.exp(2 * (f - TYPICAL_FIT))));
+  const hire = range(1, 95)(100 * toP(toOdds(fam.hire) * Math.exp(HIRE_SLOPE * (f - TYPICAL_FIT))));
   const promotion_1yr = range(1, 50)(fam.promo * (0.6 + 0.8 * f) * level);
   // Long commutes and pay below target are two of the most common reasons people leave a new job.
   let adjust = 0;
@@ -169,7 +170,7 @@ const hash = (x) => createHash("sha256").update(JSON.stringify(x)).digest("hex")
 
 export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
   const home = await geocode(profile.city);
-  const coded = await Promise.all(jobs.slice(0, 8).map(async (job) => {
+  const coded = await Promise.all(jobs.slice(0, 12).map(async (job) => {
     const where = job.lat != null ? { lat: job.lat, lng: job.lng } : await geocode(job.city);
     return {
       job,

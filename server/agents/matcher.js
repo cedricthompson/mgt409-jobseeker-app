@@ -30,7 +30,8 @@ If the applicant is starting out (little or no work history), rank entry-level j
 jobs that require years of experience or a degree they don't have.
 ${SAFETY}
 Reply ONLY with JSON: {"matches": [{"id": string, "fit": "strong" | "good" | "stretch", "why": string, "gaps": [string]}]}
-Return 6 to 10 matches, best first, whenever at least 6 jobs are reasonable or stretch fits; return fewer only when fewer fit.
+Return 8 to 12 matches, best first, whenever at least 8 jobs are reasonable fits; return fewer only when fewer fit.
+Favor jobs the applicant is genuinely qualified for: only jobs where they would have a real chance of an interview will be shown.
 Never list the same job twice. "why" is one sentence. "gaps" lists missing requirements (empty if none).`;
 
 const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.city, mode: j.work_mode,

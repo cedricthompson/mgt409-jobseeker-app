@@ -11,7 +11,10 @@ import SearchElsewhere from '../components/SearchElsewhere';
 type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job };
 const FIT_LABEL = { strong: 'Strong match', good: 'Good match', stretch: 'Stretch' };
-export const MATCHES_KEY = 'matches.v1';
+export const MATCHES_KEY = 'matches.v2'; // v2: odds retuned, so older saved scorecards are scored again
+// A job only counts as a match when the applicant has at least this chance of an interview.
+// Jobs below it are kept as "long shots", hidden unless the applicant asks to see them.
+export const MATCH_MIN_INTERVIEW = 50;
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
 
 export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob, signedIn, onAccount }: {
@@ -24,13 +27,14 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   const [cards, setCards] = useState<Record<string, Card>>({});
   const [sample, setSample] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
+  const [showLong, setShowLong] = useState(false);
   const [error, setError] = useState('');
   const started = useRef(false);
 
   // The last matches for this profile are kept on the device, so they're still here after leaving this
   // screen or reloading the page. "Search again" runs a fresh search.
   const search = async (fresh: boolean) => {
-    setError(''); setOpen(null);
+    setError(''); setOpen(null); setShowLong(false);
     try {
       if (!fresh) {
         const saved = JSON.parse((await AsyncStorage.getItem(MATCHES_KEY)) || 'null');
@@ -63,7 +67,15 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   const save = (id: string, job: Job, c?: Card) =>
     tracker.add(id, job, c ? { overall: c.overall, predictions: c.predictions } : undefined);
 
-  const sorted = [...matches].sort((a, b) => (cards[b.id]?.overall ?? -1) - (cards[a.id]?.overall ?? -1));
+  // Best interview chance first; ties go to the better overall fit.
+  const rank = (m: Match) => (cards[m.id]?.predictions.interview ?? -1) * 1000 + (cards[m.id]?.overall ?? -1);
+  const sorted = [...matches].sort((a, b) => rank(b) - rank(a));
+  const scored = !step && Object.keys(cards).length > 0;
+  // Until scorecards arrive every job is listed; once scored, only real chances count as matches.
+  const isMatch = (m: Match) => !scored || (cards[m.id]?.predictions.interview ?? 0) >= MATCH_MIN_INTERVIEW;
+  const good = sorted.filter(isMatch);
+  const longShots = sorted.filter((m) => !isMatch(m));
+  const shown = showLong ? [...good, ...longShots] : good;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -109,8 +121,17 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
           </Text>
         )}
 
-        {sorted.map(({ id, fit, why, gaps, job }) => {
+        {scored && (
+          <Text style={type.small}>
+            {good.length
+              ? `Showing ${good.length} job${good.length === 1 ? '' : 's'} where you have at least a ${MATCH_MIN_INTERVIEW}% chance of an interview, best chance first.`
+              : `None of the jobs we found give you at least a ${MATCH_MIN_INTERVIEW}% chance of an interview yet. Try Search again, check a job you found, or see the long shots below.`}
+          </Text>
+        )}
+
+        {shown.map(({ id, fit, why, gaps, job }) => {
           const c = cards[id];
+          const longShot = longShots.some((x) => x.id === id);
           const expanded = open === id;
           return (
             <View key={id} style={styles.card}>
@@ -134,7 +155,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
                     {job.pay_estimated ? ' (estimated)' : ''}
                     {job.source ? ` · ${job.source}` : ''}
                   </Text>
-                  <Text style={[styles.fit, fit === 'stretch' && { color: colors.muted }]}>{FIT_LABEL[fit]}</Text>
+                  <Text style={[styles.fit, (fit === 'stretch' || longShot) && { color: colors.muted }]}>{longShot ? 'Long shot' : FIT_LABEL[fit]}</Text>
                 </View>
               </View>
 
@@ -180,6 +201,20 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
             </View>
           );
         })}
+
+        {scored && longShots.length > 0 && (
+          <Pressable
+            onPress={() => setShowLong(!showLong)}
+            style={styles.back}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showLong }}
+            accessibilityLabel={showLong ? 'Hide long shots' : `Show ${longShots.length} long shots: jobs where your interview chance is under ${MATCH_MIN_INTERVIEW} percent`}
+          >
+            <Text style={styles.backText}>
+              {showLong ? 'Hide long shots ▲' : `Show ${longShots.length} long shot${longShots.length === 1 ? '' : 's'} (under ${MATCH_MIN_INTERVIEW}% interview chance) ▼`}
+            </Text>
+          </Pressable>
+        )}
 
         {!step && <SearchElsewhere profile={profile} />}
 
