@@ -73,7 +73,7 @@ function overall(parts) {
 // Code turns those labels and the fit scores into odds. Starting points per job family are approximate
 // U.S. patterns from BLS Employee Tenure and JOLTS (quits and hires) data and typical applicant-to-interview
 // ratios. They are planning estimates, not guarantees.
-//   interview: chance an average-fit applicant gets an interview; hire: chance of an offer after interviewing;
+//   interview: chance an average-fit applicant gets an interview; hire: chance of an offer once interviewed (its own 0-100%);
 //   promo: promotion within a year; r12/r18/r24: still employed there at 12, 18, 24 months.
 export const FAMILIES = {
   food_service:            { label: "food service",                 interview: 35, hire: 0.50, promo: 15, r12: 50, r18: 40, r24: 33 },
@@ -106,19 +106,22 @@ export function predict(labels, fit, parts) {
   const f = fit / 100; // overall fit, 0 to 1
   const base = Math.min(0.9, (fam.interview / 100) * comp);
   const interview = range(2, 90)(100 * toP(toOdds(base) * Math.exp(4 * (f - TYPICAL_FIT))));
-  const offerOnceInterviewed = toP(toOdds(fam.hire) * Math.exp(2 * (f - TYPICAL_FIT)));
-  const hire = Math.min(interview, range(1, 80)(interview * offerOnceInterviewed));
+  // Each chance is its own 0-100% score, not a share of one total: "hire" is your chance of an offer once you
+  // interview, so it is not capped by (or multiplied into) the interview chance.
+  const hire = range(1, 90)(100 * toP(toOdds(fam.hire) * Math.exp(2 * (f - TYPICAL_FIT))));
   const promotion_1yr = range(1, 50)(fam.promo * (0.6 + 0.8 * f) * level);
   // Long commutes and pay below target are two of the most common reasons people leave a new job.
   let adjust = 0;
   if (parts.commute?.score != null && parts.commute.score < 60) adjust -= 8;
   if (parts.pay?.score != null) adjust += parts.pay.score < 60 ? -6 : parts.pay.score >= 90 ? 4 : 0;
   const r = range(5, 97);
-  const retain_12 = r(fam.r12 + adjust), retain_18 = Math.min(retain_12, r(fam.r18 + adjust)), retain_24 = Math.min(retain_18, r(fam.r24 + adjust));
+  // Each stay chance is scored on its own 0-100% scale from that milestone's own starting point.
+  const retain_12 = r(fam.r12 + adjust), retain_18 = r(fam.r18 + adjust), retain_24 = r(fam.r24 + adjust);
   const vs = Math.round(100 * base);
   const basis = `For ${fam.label} jobs with ${labels.competition || "medium"} competition, a typical applicant has about a ${vs}% chance of an interview. ` +
     `Your fit of ${fit} out of 100 ${f > TYPICAL_FIT + 0.05 ? "raises" : f < TYPICAL_FIT - 0.05 ? "lowers" : "keeps"} your odds ` +
-    `${Math.abs(f - TYPICAL_FIT) > 0.05 ? `to ${interview}%` : `near ${interview}%`}. About ${fam.r12}% of new hires in these jobs are still there after a year` +
+    `${Math.abs(f - TYPICAL_FIT) > 0.05 ? `to ${interview}%` : `near ${interview}%`}. If you interview, your chance of an offer is about ${hire}%. ` +
+    `Each chance is scored on its own scale of 0 to 100%, so they don't add up to 100 together. About ${fam.r12}% of new hires in these jobs are still there after a year` +
     `${adjust < 0 ? "; yours is a little lower because of the commute or pay" : adjust > 0 ? "; yours is a little higher because the pay meets your target" : ""}.`;
   return { predictions: { interview, hire, promotion_1yr, retain_12, retain_18, retain_24 }, basis };
 }

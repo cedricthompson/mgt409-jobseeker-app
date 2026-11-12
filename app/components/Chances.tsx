@@ -15,7 +15,7 @@ export type Card = {
 
 const PART_LABELS: Record<string, string> = { skills: 'Skills', credentials: 'Credentials', experience: 'Experience', pay: 'Pay', commute: 'Commute' };
 const ODDS: [Odds, string][] = [
-  ['interview', 'Get an interview'], ['hire', 'Get hired'], ['promotion_1yr', 'Promoted within 1 year'],
+  ['interview', 'Get an interview'], ['hire', 'Hired, if interviewed'], ['promotion_1yr', 'Promoted within 1 year'],
   ['retain_12', 'Still there at 12 months'], ['retain_18', 'Still there at 18 months'], ['retain_24', 'Still there at 24 months'],
 ];
 const HEADLINE: [Odds, string][] = [['interview', 'Interview'], ['hire', 'Hired'], ['retain_12', 'Still there at 1 year']];
@@ -54,6 +54,7 @@ export function ScoreDetails({ card }: { card: Card }) {
   return (
     <View style={{ gap: space.md }}>
       <Text style={styles.sub} role="heading" aria-level={3}>All your chances (estimates)</Text>
+      <Text style={styles.note}>Each chance is scored on its own scale of 0 to 100%. They are separate, so they don't add up to 100 together.</Text>
       {ODDS.map(([k, label]) => <Bar key={k} label={label} value={card.predictions[k]} />)}
       {card.explanation ? <Text style={type.small}>{card.explanation}</Text> : null}
       {card.basis ? <Text style={styles.note}>{card.basis}</Text> : null}

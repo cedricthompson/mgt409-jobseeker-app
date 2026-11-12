@@ -1,12 +1,12 @@
 // The sample Predictability Scorecard shown on the Scorecard page and, in miniature, on the opening page.
 // Numbers come from the app's real rules (server/agents/scorecard.js) for this example applicant:
 // fit parts skills 78, credentials 60, experience 100, pay 90, commute 70 -> overall 77; food service, mid level,
-// medium competition -> interview 46%, hired 28%, promoted 18%, still there 54% / 44% / 37% at 12 / 18 / 24 months.
+// medium competition -> interview 46%, hired 61% (once interviewed), promoted 18%, still there 54% / 44% / 37% at 12 / 18 / 24 months.
 export type Color = 'blue' | 'green' | 'orange' | 'purple' | 'teal' | 'red';
 
 export const CHANCES: { label: string; value: number; color: Color; icon: string; note: string }[] = [
   { label: 'Get an interview', value: 46, color: 'blue', icon: '📞', note: 'About 1 in 2. Most applicants for this kind of job hear back less often.' },
-  { label: 'Get hired', value: 28, color: 'green', icon: '🤝', note: 'Your odds of an offer, counting the interview step.' },
+  { label: 'Get hired', value: 61, color: 'green', icon: '🤝', note: 'Your odds of an offer once you interview. Each chance is scored on its own 0 to 100%.' },
   { label: 'Promoted within a year', value: 18, color: 'orange', icon: '📈', note: 'Kitchen roles promote from within more than most.' },
   { label: 'Still there after 1 year', value: 54, color: 'purple', icon: '📅', note: 'Above average for food service, where about half of new hires stay a year.' },
 ];
