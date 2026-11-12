@@ -39,6 +39,9 @@ const cacheKey = (body) => createHash("sha256").update(JSON.stringify(body)).dig
 // Hidden thinking was most of the Job Matcher's ~40 seconds, and ranking a short list doesn't need it.
 // If the model rejects the setting, the call is retried without it and the setting is skipped from then on.
 let effortSupported = true;
+let effortError = null;
+// Shown on /api/health: which model answers, and whether the speed setting is being used.
+export const modelStatus = () => ({ model: MODEL, effort: effortSupported ? "used" : `off: ${effortError}` });
 
 export async function chat(messages, { json = false, agent = "other", session = "anonymous", useCache = true, effort } = {}) {
   const body = { model: MODEL, messages, ...(json && { response_format: { type: "json_object" } }),
@@ -62,6 +65,7 @@ export async function chat(messages, { json = false, agent = "other", session = 
     const detail = await res.text();
     if (body.reasoning_effort && res.status === 400 && /reasoning/i.test(detail)) {
       effortSupported = false;
+      effortError = detail.slice(0, 200);
       console.warn(`Model doesn't accept reasoning_effort; continuing without it. ${detail.slice(0, 200)}`);
       return chat(messages, { json, agent, session, useCache });
     }

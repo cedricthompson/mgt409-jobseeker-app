@@ -74,7 +74,7 @@ const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.
   certs: j.required_certs, clearance: j.clearance, skills: j.skills, source: j.source || "sample", hiring_now: j.hiring_now || undefined,
   workplace: j.workplace, summary: j.source ? j.summary : undefined });
 
-async function shortlist(profile, jobs, { session, prefs }) {
+export async function shortlist(profile, jobs, { session, prefs }) {
   const byId = Object.fromEntries(jobs.map((j) => [j.id, j]));
   const { text } = await chat(
     [

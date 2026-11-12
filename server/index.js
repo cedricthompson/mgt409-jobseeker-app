@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { repoRoot } from "./env.js";
-import { usage } from "./llm.js";
+import { modelStatus, usage } from "./llm.js";
 import { intake } from "./agents/intake.js";
 import { gap } from "./agents/gap.js";
 import { importResume } from "./agents/import.js";
@@ -55,7 +55,7 @@ async function readJson(req) {
 
 const routes = {
   "GET /api/health": async () => ({ ok: true, started: STARTED, version: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 7),
-    database: process.env.DATABASE_URL ? "set" : "missing", accounts: accountsEnabled(), sources: sourcesConfigured(), jsearch_quota: jsearchQuota, last: sourceStatus }),
+    database: process.env.DATABASE_URL ? "set" : "missing", accounts: accountsEnabled(), sources: sourcesConfigured(), jsearch_quota: jsearchQuota, ...modelStatus(), last: sourceStatus }),
   "GET /api/usage": async () => usage,
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
