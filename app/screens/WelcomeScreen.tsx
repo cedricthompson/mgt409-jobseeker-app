@@ -62,7 +62,7 @@ function TypedHeadline({ animate, onDone }: { animate: boolean; onDone: () => vo
 const HOW_STEPS = [
   'Upload your resume.',
   'Tell our coaches what you are looking for: the jobs, pay, and commute you want.',
-  'Sit back while your top matches appear.',
+  'Talk with our 5 coaches to get connected to the jobs worth applying to.',
 ];
 
 // The line under the headline fades up once the headline has finished typing.
