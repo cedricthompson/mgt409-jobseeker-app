@@ -112,7 +112,8 @@ const jobKey = (j) => `${j.title}|${j.company}`.toLowerCase().replace(/\s+/g, " 
 export async function matchJobs({ profile = {}, session, prefs, round = 0, exclude = [], target = TARGET }) {
   const enough = Math.max(1, Math.min(Number(target) || TARGET, TARGET));
   const seen = new Set((Array.isArray(exclude) ? exclude : []).map(String));
-  const found = [], gathered = [];
+  const found = [], gathered = [], timing = []; // seconds per step of each round, to keep an eye on speed
+  const clock = () => { const t = Date.now(); return () => Math.round((Date.now() - t) / 100) / 10; };
   let considered = 0, scored = 0, data = "live";
   const first = Math.max(0, Math.min(Number(round) || 0, MAX_WIDEN + 1));
   let r = first;
@@ -120,7 +121,9 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
   // (Searches are cached for an hour, so one that ends up unused costs nothing if the applicant keeps looking.)
   let upcoming = liveJobs(profile, { widen: r });
   for (; r <= MAX_WIDEN && r < first + ROUNDS_PER_REQUEST && found.length < enough; r++) {
+    const searchTime = clock();
     const live = await upcoming;
+    const step = { round: r, search: searchTime() };
     upcoming = r + 1 <= MAX_WIDEN && r + 1 < first + ROUNDS_PER_REQUEST ? liveJobs(profile, { widen: r + 1 }) : null;
     upcoming?.catch(() => {});
     // Real local listings come first. Sample jobs are fictional, so they're only used when
@@ -132,17 +135,22 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
     gathered.push(...fresh);
     considered += fresh.length;
     if (fresh.length) {
+      const t1 = clock();
       const picks = await shortlist(profile, fresh.slice(0, 60), { session, prefs }); // cap keeps the call affordable
+      step.shortlist = t1();
+      const t2 = clock();
       const cards = (await inParallel(picks, SCORE_PARALLEL, (m) => scorecard({ profile, jobs: [m.job], session, prefs }))).flat();
+      step.score = t2();
       scored += cards.length;
       const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
       for (const m of picks) if (qualifies(byId[m.id])) found.push({ ...m, card: byId[m.id] });
     }
+    timing.push({ ...step, jobs: fresh.length });
     if (data === "sample") { r = MAX_WIDEN + 1; break; } // nothing more to search
   }
   found.sort((a, b) => bothChances(b.card) - bothChances(a.card));
   return {
-    matches: found, data, considered, scored,
+    matches: found, data, considered, scored, timing,
     min: { interview: MIN_INTERVIEW, hire: MIN_HIRE },
     next_round: r <= MAX_WIDEN ? r : null, // where "Keep looking" continues; null when every search has been tried
     checked: [...seen], // jobs already checked, so "Keep looking" only scores new ones
