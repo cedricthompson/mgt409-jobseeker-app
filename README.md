@@ -210,7 +210,14 @@ server/                 Node API (also serves the built web app)
   eval/                 Safety tests and traced runs (write to evidence/)
   data/                 sample-jobs.json, onet.json, employers.json
 evidence/               Safety test results and traced runs for the report
+report/report.html      Final project report (one self-contained file; open it by double-clicking)
 ```
+
+## Final project report
+
+[`report/report.html`](report/report.html) is the MGT 409 final report: one HTML file with every screenshot built in, so it opens
+by double-clicking on any computer. Sections 1 to 5 are written (title, motivation, what's new, the agents with a live traced run,
+and tokenomics); Safety, Impact, and Limits are still to come.
 
 ## Credits
 
