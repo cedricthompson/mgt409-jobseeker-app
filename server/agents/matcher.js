@@ -28,7 +28,7 @@ const SHORTLIST = 20; // jobs scored per round
 const SCORE_PARALLEL = 12;
 // Speed (Nov 2026: Pro JSearch plus employer feeds brought ~70 jobs a round, and a search took 2.5 minutes):
 const SHORTLIST_MAX = 35; // jobs the model reads per round, best title fits first
-const TIME_BUDGET = 60e3; // once a request has run this long and found a match, show it; "Keep looking" does the rest
+const TIME_BUDGET = 60e3; // a request returns after about a minute; the app shows what's found and asks for the next round itself
 
 // Jobs whose titles share the most words with the roles being searched go first, so the shortlist reads the
 // likeliest fits. Ties keep the sources' turn-taking order.
@@ -135,7 +135,7 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
   let upcoming = liveJobs(profile, { widen: r });
   const started = Date.now();
   for (; r <= MAX_WIDEN && r < first + ROUNDS_PER_REQUEST && found.length < enough
-    && !(found.length && Date.now() - started > TIME_BUDGET); r++) {
+    && Date.now() - started < TIME_BUDGET; r++) {
     const searchTime = clock();
     const live = await upcoming;
     const step = { round: r, search: searchTime() };

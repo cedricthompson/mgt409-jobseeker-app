@@ -22,7 +22,6 @@ export const MATCH_MIN_INTERVIEW = 50;
 export const MATCH_MIN_HIRE = 50;
 const qualifies = (c?: Card) => (c?.predictions.interview ?? 0) >= MATCH_MIN_INTERVIEW && (c?.predictions.hire ?? 0) >= MATCH_MIN_HIRE;
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
-const KIND_LABEL = (k: string) => k.charAt(0).toUpperCase() + k.slice(1);
 
 export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob, signedIn, onAccount }: {
   profile: Profile; prefs: Prefs; onBack: () => void; onTracker: () => void; onCheckJob: () => void;
@@ -250,28 +249,6 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
           </Pressable>
         )}
 
-        {!step && reachOut.length > 0 && (
-          <View style={styles.reach}>
-            <Text style={styles.jobTitle} role="heading" aria-level={2}>Employers near you to reach out to</Text>
-            <Text style={type.small}>These employers are hiring for work like yours. Even when a posting isn't a fit, it's worth contacting them or checking their careers page.</Text>
-            {reachOut.map((e) => (
-              <View key={e.name} style={styles.employer}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[type.body, { fontWeight: '700' }]}>{e.name}</Text>
-                  <Text style={type.small}>{[KIND_LABEL(e.kind), e.city, `${e.openings} opening${e.openings === 1 ? '' : 's'} like "${e.example}"`].filter(Boolean).join(' · ')}</Text>
-                </View>
-                <Pressable
-                  onPress={() => Linking.openURL(e.website || `https://www.google.com/search?q=${encodeURIComponent(`${e.name} careers`)}`)}
-                  style={styles.saveBtn}
-                  accessibilityRole="link"
-                  accessibilityLabel={`Open the careers page for ${e.name}`}
-                >
-                  <Text style={styles.saveText}>Careers page</Text>
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        )}
 
         {!step && <SearchElsewhere profile={profile} />}
 
