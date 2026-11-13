@@ -156,6 +156,21 @@ const jobView = (job) => ({ title: job.title, company: job.company, city: job.ci
   description: job.description || job.summary, clearance: job.clearance, certs: job.required_certs, exp_years: job.experience_years,
   onet_options: candidates(job.title, 4).map((o) => ({ code: o.code, title: o.title, skills: o.skills, knowledge: o.knowledge, software: o.tech.slice(0, 5) })) });
 
+// For a job that has already been read: the requirement list is fixed, and the model only says which ones this
+// applicant meets. It may not add, drop, or reword requirements, so the same job is always judged on the same list.
+const JUDGE = `You are the Scorecard agent of a job search app. Each job's requirements were already set and are listed with numbers.
+For each job, using only the applicant profile:
+1. "checks": one entry per listed requirement, same numbers ("n"): "have": true only when the applicant's profile shows it
+   (directly, or clearly through equivalent experience; senior experience that covers it counts), and "evidence": a few words
+   from their background that show it, or what's missing. Do not add, remove, or reword requirements.
+   If "previous_checks" are given, they are your earlier answers for this same applicant before they added to their profile:
+   keep each one exactly unless something new in the profile changes it.
+2. "explanation": one sentence on what most helps or hurts this applicant's chances. Do not state percentages.
+3. "improve": the single most useful action to raise the applicant's chances.
+Use only job-related factors. Never use or infer protected traits (race, gender, age, disability, religion, national origin).
+${rulesFor("priya")}
+Reply ONLY with JSON: {"jobs": [{"id": string, "checks": [{"n": number, "have": boolean, "evidence": string}], "explanation": string, "improve": string}]}`;
+
 // Skills score from the requirement list: listing requirements count twice as much as O*NET's general ones.
 function skillsFromRequirements(reqs) {
   if (!reqs.length) return { score: null, note: "The job's requirements weren't clear enough to compare." };
@@ -209,39 +224,88 @@ export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
     };
   }));
 
-  // Look up judgments already made for this applicant and job; ask the model only about new ones.
+  // Steady scores: a job's READING (its family, level, competition, O*NET match, requirement list, years and licenses
+  // required) belongs to the job, not the applicant. The first time any applicant's score needs a job, the model reads
+  // it once; that reading is saved under the job alone and reused for every later score, for every applicant, even
+  // after the prompt wording changes. Only the applicant's part (which requirements they meet, the explanation and the
+  // next step) is judged per applicant, against the same fixed requirement list. Before this, any small profile change
+  // re-read the whole job, and a job could score 66% on one run and 43% on the next.
   const applicant = jobFacts(profile);
   const lang = accessibility(prefs);
-  const keyOf = (job) => hash({ v: 2, SYSTEM, lang, applicant, job: jobView(job) });
+  // Which requirements someone meets depends only on their background, not on pay, commute, or city (those are scored
+  // in code), so the saved check is keyed on the background alone: changing a pay target never re-judges skills.
+  const background = (({ experience, education, certifications, skills, clearance }) => ({ experience, education, certifications, skills, clearance }))(applicant);
+  const keyOf = (job) => hash({ v: 3, SYSTEM, lang, background, job: jobView(job) });
+  const readKeyOf = (job) => hash({ reading: 1, job: jobView(job) });
+  // The last check for this job and this person's core background (everything but the skills list). When they add a
+  // skill, the model starts from these answers and changes only what the new information affects.
+  const core = (({ experience, education, certifications, clearance }) => ({ experience, education, certifications, clearance }))(applicant);
+  const anchorKeyOf = (job) => hash({ anchor: 1, lang, core, job: jobView(job) });
   const keys = coded.map(({ job }) => keyOf(job));
   const known = await recall(keys);
   const todo = coded.filter((_, i) => !known[keys[i]]);
   if (todo.length) {
-    const { text } = await chat(
-      [
-        { role: "system", content: `${SYSTEM}\n${lang}` },
-        { role: "user", content: JSON.stringify({ applicant, jobs: todo.map(({ job }, i) => ({ id: String(i), ...jobView(job) })) }) },
-      ],
-      { json: true, agent: "scorecard", session }
-    );
+    const readings = await recall(todo.map(({ job }) => readKeyOf(job)));
+    const anchors = await recall(todo.map(({ job }) => anchorKeyOf(job)));
+    const unread = todo.filter(({ job }) => !readings[readKeyOf(job)]);
+    const read = todo.filter(({ job }) => readings[readKeyOf(job)]);
     const fresh = [];
-    for (const j of JSON.parse(text).jobs || []) {
-      const item = todo[Number(j.id)];
-      if (!item) continue;
-      const requirements = (Array.isArray(j.requirements) ? j.requirements : []).slice(0, 10)
-        .filter((r) => r && r.skill).map((r) => ({ skill: String(r.skill), from: r.from === "onet" ? "onet" : "listing", have: r.have === true, evidence: String(r.evidence || "") }));
-      const value = {
-        family: FAMILIES[j.family] ? j.family : "other", level: LEVEL[j.level] ? j.level : "mid",
-        competition: COMPETITION[j.competition] ? j.competition : "medium",
-        onet: occupation(j.onet) ? j.onet : null, requirements,
-        experience_years: Number.isFinite(j.experience_years) ? j.experience_years : null,
-        certs: Array.isArray(j.certs) ? j.certs.map(String).slice(0, 5) : [],
-        explanation: j.explanation || "", improve: j.improve || "",
-      };
-      const key = keyOf(item.job);
-      known[key] = value;
-      fresh.push([key, value]);
-    }
+    const firstReading = async () => {
+      if (!unread.length) return;
+      const { text } = await chat(
+        [
+          { role: "system", content: `${SYSTEM}\n${lang}` },
+          { role: "user", content: JSON.stringify({ applicant, jobs: unread.map(({ job }, i) => ({ id: String(i), ...jobView(job) })) }) },
+        ],
+        { json: true, agent: "scorecard", session }
+      );
+      for (const j of JSON.parse(text).jobs || []) {
+        const item = unread[Number(j.id)];
+        if (!item) continue;
+        const requirements = (Array.isArray(j.requirements) ? j.requirements : []).slice(0, 10)
+          .filter((r) => r && r.skill).map((r) => ({ skill: String(r.skill), from: r.from === "onet" ? "onet" : "listing", have: r.have === true, evidence: String(r.evidence || "") }));
+        const reading = {
+          family: FAMILIES[j.family] ? j.family : "other", level: LEVEL[j.level] ? j.level : "mid",
+          competition: COMPETITION[j.competition] ? j.competition : "medium",
+          onet: occupation(j.onet) ? j.onet : null, requirements: requirements.map(({ skill, from }) => ({ skill, from })),
+          experience_years: Number.isFinite(j.experience_years) ? j.experience_years : null,
+          certs: Array.isArray(j.certs) ? j.certs.map(String).slice(0, 5) : [],
+        };
+        const value = { ...reading, requirements, explanation: j.explanation || "", improve: j.improve || "" };
+        known[keyOf(item.job)] = value;
+        fresh.push([keyOf(item.job), value], [readKeyOf(item.job), reading], [anchorKeyOf(item.job), value]);
+      }
+    };
+    const judgeAgainstReading = async () => {
+      if (!read.length) return;
+      const { text } = await chat(
+        [
+          { role: "system", content: `${JUDGE}\n${lang}` },
+          { role: "user", content: JSON.stringify({ applicant, jobs: read.map(({ job }, i) => {
+            const r = readings[readKeyOf(job)];
+            const before = anchors[anchorKeyOf(job)];
+            return { id: String(i), title: job.title, company: job.company, description: job.description || job.summary,
+              requirements: r.requirements.map((q, n) => ({ n, skill: q.skill })),
+              ...(before ? { previous_checks: before.requirements.map((q, n) => ({ n, have: q.have, evidence: q.evidence })) } : {}) };
+          }) }) },
+        ],
+        { json: true, agent: "scorecard", session }
+      );
+      for (const j of JSON.parse(text).jobs || []) {
+        const item = read[Number(j.id)];
+        if (!item) continue;
+        const r = readings[readKeyOf(item.job)];
+        const checks = Array.isArray(j.checks) ? j.checks : [];
+        const requirements = r.requirements.map((q, n) => {
+          const c = checks.find((x) => Number(x?.n) === n) || checks[n] || {};
+          return { ...q, have: c.have === true, evidence: String(c.evidence || "") };
+        });
+        const value = { ...r, requirements, explanation: j.explanation || "", improve: j.improve || "" };
+        known[keyOf(item.job)] = value;
+        fresh.push([keyOf(item.job), value], [anchorKeyOf(item.job), value]);
+      }
+    };
+    await Promise.all([firstReading(), judgeAgainstReading()]);
     await remember(fresh);
   }
 

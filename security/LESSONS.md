@@ -38,3 +38,12 @@ the history of what went wrong is the reason each rule exists. Add new lessons a
     the secret values come from a server secret, never the repo.
 12. **An attacker trips more than one wire.** In the red-team run, the attacker who tried `../` paths to reach the
     accounts file sprang the bait trap and was blocked for every later request. Each trap backs up the others.
+
+## 2026-11-13: Steadying the scores
+
+13. **Save what belongs to the job, separately from what belongs to the person.** Lesson 10 found a job scoring 66% on one
+    run and 43% on another. The cause: any profile change, even a pay target, sent the whole job back to the model, which
+    re-decided the kind of job, its competition, and its requirement list. Fix: the job's reading is saved once per job and
+    reused for every score and every applicant; which requirements a person meets is saved against their background only,
+    and re-checks start from the previous answers. Result: 0 points of change across 7 runs (pay changes, unrelated skills),
+    while adding two skills the job asked for still raised the interview chance from 50% to 64%.
