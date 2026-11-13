@@ -67,6 +67,6 @@ const styles = themed(() => ({
   chanceLabel: { fontSize: 12, fontWeight: '700', color: colors.ink, textAlign: 'center' },
   fitRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   fitLabel: { width: 82, fontSize: 13, color: colors.ink },
-  fitScore: { width: 40, textAlign: 'right', fontSize: 14, fontWeight: '800' },
+  fitScore: { width: 48, textAlign: 'right', fontSize: 14, fontWeight: '800' },
   link: { fontSize: 15, fontWeight: '800', color: colors.blue },
 }));

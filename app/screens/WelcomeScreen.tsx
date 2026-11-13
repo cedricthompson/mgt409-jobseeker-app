@@ -6,6 +6,7 @@ import Avatar from '../components/Avatar';
 import { APP_NAME, APP_TAGLINE } from '../brand';
 import Brand from '../components/Brand';
 import { START_METHODS, StartMethod } from '../start';
+import { bell, keyClick, soundAvailable, unlockSound } from '../typingSound';
 import { PROMO_MINUTES } from '../components/Promo';
 import MiniScorecard from '../components/MiniScorecard';
 
@@ -46,6 +47,12 @@ function TypedHeadline({ animate, onDone }: { animate: boolean; onDone: () => vo
     return () => clearInterval(id);
   }, [animate]);
   useEffect(() => { if (n >= full.length) onDone(); }, [n >= full.length]);
+  // A typewriter key sound for each letter as it appears, and a bell at the end (web, once sound is allowed).
+  useEffect(() => {
+    if (!animate || n === 0) return;
+    if (n <= full.length) keyClick(full[n - 1]);
+    if (n === full.length) bell();
+  }, [n]);
   const cut = HEADLINE[0].length;
   const typing = n < full.length;
   return (
@@ -102,6 +109,7 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
   useEffect(() => { AccessibilityInfo.isReduceMotionEnabled().then(setDeviceReduce).catch(() => {}); }, []);
   const animate = !reduceMotion && !deviceReduce;
   const [typed, setTyped] = useState(false);
+  const [run, setRun] = useState(0); // bumped by "Play with sound" to type the headline again
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.page}>
@@ -127,8 +135,19 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
         {/* Hero: the promise on the left, a miniature sample scorecard on the right (stacked on phones) */}
         <View style={[styles.heroRow, { flexDirection: wideHero ? 'row' : 'column' }]}>
           <View style={[styles.section, wideHero && { flex: 1.3 }]}>
-            <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()}</Text>
-            <TypedHeadline animate={animate} onDone={() => setTyped(true)} />
+            <View style={styles.eyebrowRow}>
+              <Text style={styles.eyebrow}>{APP_TAGLINE.toUpperCase()}</Text>
+              {animate && soundAvailable() && (
+                <Pressable
+                  onPress={async () => { await unlockSound(); setRun((r) => r + 1); }}
+                  accessibilityRole="button" accessibilityLabel="Replay the headline with typewriter sound"
+                  style={styles.soundBtn}
+                >
+                  <Text style={styles.soundText}>🔊 Play with sound</Text>
+                </Pressable>
+              )}
+            </View>
+            <TypedHeadline key={run} animate={animate} onDone={() => setTyped(true)} />
             {/* After the headline types: the intro, then the three steps one by one, then the scorecard flies in. */}
             <FadeUp show={typed} animate={animate}>
               <Text style={[styles.lead, styles.bold]}>Let our Predictability Scorecard help you land your dream job.</Text>
@@ -268,6 +287,9 @@ const styles = themed(() => {
   topLinkText: { fontSize: 18, fontWeight: '600', color: colors.blue },
   section: { gap: space.md },
   eyebrow: { fontSize: 14, fontWeight: '800', letterSpacing: 1.2, color: colors.blue },
+  eyebrowRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: space.md },
+  soundBtn: { minHeight: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1.5, borderColor: colors.blue, justifyContent: 'center' },
+  soundText: { fontSize: 14, fontWeight: '700', color: colors.blue },
   hero: { fontSize: 48, lineHeight: 54, fontWeight: '900', color: colors.ink, letterSpacing: -1 },
   lead: { fontSize: 20, lineHeight: 30, color: colors.muted },
   bold: { fontWeight: '700', color: colors.ink },
