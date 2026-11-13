@@ -10,12 +10,12 @@ export const CAN_HELP: Record<string, string> = {
   intake: 'Location, commute, work style, and pay',
   gap: 'Skills and certifications you haven\'t mentioned',
   matcher: 'The kinds of jobs and titles to search',
-  scorecard: 'What\'s lowering your chances, and what to change',
-  coach: 'How your experience and results come across',
+  scorecard: 'Not getting enough matches? Find out why, and what to change',
+  coach: 'Help with your resume and how you describe your work',
 };
 
 // One-word topic under each portrait on phones.
-const TOPIC: Record<string, string> = { intake: 'Basics', gap: 'Skills', matcher: 'Job types', scorecard: 'Chances', coach: 'Resume' };
+const TOPIC: Record<string, string> = { intake: 'Basics', gap: 'Skills', matcher: 'Job types', scorecard: 'Better odds', coach: 'Resume' };
 
 export default function CoachKey({ onCoach, wide }: { onCoach: (coach: string) => void; wide: boolean }) {
   const items = TEAM.map((c) => (
@@ -36,7 +36,7 @@ export default function CoachKey({ onCoach, wide }: { onCoach: (coach: string) =
   return (
     <View style={wide ? styles.panel : styles.strip} accessibilityLabel="Your coaches">
       <Text style={styles.title} role="heading" aria-level={2}>Talk with a coach</Text>
-      <Text style={type.small}>Update what you're looking for, and your matches refresh with better chances.</Text>
+      <Text style={type.small}>Click the coach who can help with what you need. Your matches update after you talk.</Text>
       {wide ? <View style={{ gap: space.xs }}>{items}</View>
         : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingVertical: 2 }}>{items}</ScrollView>}
     </View>
