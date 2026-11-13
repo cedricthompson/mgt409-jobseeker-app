@@ -11,6 +11,8 @@ import { recall, remember } from "../memo.js";
 import { createHash } from "node:crypto";
 import { candidates, occupation } from "../onet.js";
 import { totalYears } from "../experience.js";
+import { jobDetails } from "../feeds.js";
+import { requirementsText } from "../sources.js";
 
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 const CLEARANCE = ["none", "public trust", "secret", "top secret", "ts/sci"];
@@ -170,7 +172,10 @@ const hash = (x) => createHash("sha256").update(JSON.stringify(x)).digest("hex")
 
 export async function scorecard({ profile = {}, jobs = [], session, prefs }) {
   const home = await geocode(profile.city);
-  const coded = await Promise.all(jobs.slice(0, 12).map(async (job) => {
+  const coded = await Promise.all(jobs.slice(0, 12).map(async (listed) => {
+    // Feed jobs that came with only a title (Breezy) get their full posting read now, so skills can be compared.
+    const job = !listed.description && listed.details_url
+      ? { ...listed, description: requirementsText(await jobDetails(listed.details_url)) || null } : listed;
     const where = job.lat != null ? { lat: job.lat, lng: job.lng } : await geocode(job.city);
     return {
       job,

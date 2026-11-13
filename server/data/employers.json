@@ -1,5 +1,5 @@
 {
-  "about": "Featured employers searched directly through Google for Jobs (JSearch), so their openings show up with apply links to their own careers sites. metros: the metro names in server/geo.js where they hire, or \"any\". keywords: kinds of roles they hire for, used to pick the best 2 employers for each search. To add an employer, add a line here.",
+  "about": "Featured employers. Most are searched through Google for Jobs (JSearch), with apply links to their own careers sites. Employers with a \"feed\" (Breezy HR, Greenhouse, or Lever: {\"type\": \"breezy\", \"id\": \"company-id\"}) are read from that public feed instead, with every opening and no JSearch cost. metros: the metro names in server/geo.js where they hire, or \"any\". keywords: kinds of roles they hire for, used to pick the best 2 employers for each search. To add an employer, add a line here.",
   "employers": [
     { "name": "CACI", "query": "CACI", "group": "DC-area contractors", "metros": ["Washington, DC", "Baltimore"],
       "keywords": ["analyst", "engineer", "software", "cyber", "intelligence", "data", "program", "project", "manager", "operations", "it", "network", "paralegal", "legal", "hr", "logistics", "consultant", "director"] },
@@ -15,6 +15,10 @@
       "keywords": ["consultant", "analyst", "strategy", "workforce", "human capital", "program", "project", "manager", "data", "director", "change management"] },
     { "name": "Accenture Federal Services", "query": "Accenture Federal Services", "group": "DC-area contractors", "metros": ["Washington, DC"],
       "keywords": ["consultant", "analyst", "engineer", "data", "program", "project", "manager", "change management", "training", "it"] },
+
+    { "name": "Terrestris", "query": "Terrestris", "group": "DC-area contractors", "metros": ["Washington, DC", "Baltimore"],
+      "feed": { "type": "breezy", "id": "terrestris-global-solutions" },
+      "keywords": ["administrative", "assistant", "program", "project", "manager", "analyst", "it", "support", "help desk", "security", "intelligence", "instructor", "logistics", "billing", "finance", "operations"] },
 
     { "name": "Johns Hopkins", "query": "Johns Hopkins", "group": "Hospitals and universities", "metros": ["Baltimore", "Washington, DC"],
       "keywords": ["nurse", "medical", "patient", "clinical", "health", "technician", "research", "coordinator", "administrative", "education", "program", "manager", "it", "facilities", "food", "security"] },

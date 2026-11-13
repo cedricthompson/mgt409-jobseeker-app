@@ -5,6 +5,7 @@ import "./env.js";
 import { readFileSync } from "node:fs";
 import { geocode, metroFor } from "./geo.js";
 import { totalYears } from "./experience.js";
+import { feedJobs } from "./feeds.js";
 import { relatedTitles } from "./onet.js";
 
 const LIMIT = 8;
@@ -42,7 +43,7 @@ export const sourceStatus = {};
 const note = (name, result, error) => { sourceStatus[name] = { at: new Date().toISOString(), jobs: result, error: error || null }; };
 export function sourcesConfigured() {
   const e = process.env;
-  return { usajobs: !!(e.USAJOBS_API_KEY && e.USAJOBS_EMAIL), adzuna: !!(e.ADZUNA_APP_ID && e.ADZUNA_APP_KEY), jsearch: !!e.JSEARCH_API_KEY, employers: !!e.JSEARCH_API_KEY, remotive: true };
+  return { usajobs: !!(e.USAJOBS_API_KEY && e.USAJOBS_EMAIL), adzuna: !!(e.ADZUNA_APP_ID && e.ADZUNA_APP_KEY), jsearch: !!e.JSEARCH_API_KEY, employers: !!e.JSEARCH_API_KEY, feeds: true, remotive: true };
 }
 const firstRole = (p) => (p.target_roles || [])[0] || (p.experience || [])[0]?.title || "";
 
@@ -281,6 +282,7 @@ export async function pickEmployers(p, max = JSEARCH_SIZES.small.employers) {
   const metro = metroFor(await geocode(p.city))?.name;
   const words = fold([...(p.target_roles || []), ...(p.experience || []).map((e) => e.title), ...(p.skills || [])].join(" "));
   return EMPLOYERS
+    .filter((e) => !e.feed) // employers with their own feed are read from it (feedEmployerJobs), not searched
     .filter((e) => e.metros.includes("any") || (metro && e.metros.includes(metro)))
     .map((e) => ({ e, fit: e.keywords.filter((k) => new RegExp(`\\b${k}`, "i").test(words)).length }))
     .filter((x) => x.fit > 0)
@@ -320,6 +322,19 @@ export async function employerJobs(p) {
   return jobs;
 }
 
+// Employers with a public job feed (see feeds.js): every opening near the applicant whose title fits the roles
+// they're after. No JSearch cost, so every feed employer in their metro is read on each search.
+export async function feedEmployerJobs(p) {
+  const metro = metroFor(await geocode(p.city))?.name;
+  const employers = EMPLOYERS.filter((e) => e.feed && (e.metros.includes("any") || (metro && e.metros.includes(metro))));
+  if (!employers.length) return [];
+  const roles = [...searchRoles(p), ...relatedTitles(searchRoles(p).slice(0, 2), 3)];
+  const { jobs, status } = await feedJobs(employers, { metro, wantsRemote: wantsRemote(p), roles });
+  const failed = status.filter((s) => s.error);
+  note("feeds", jobs.length, failed.length ? failed.map((s) => `${s.employer}: ${s.error}`).join("; ") : null);
+  return jobs;
+}
+
 // The part of a job description the Scorecard needs to compare skills: the requirements, not the company intro.
 // Starts at the first "Qualifications" / "Requirements" / "What you'll need" style heading when there is one,
 // and keeps up to 2,500 characters (enough for the full requirements list in nearly every posting).
@@ -353,15 +368,16 @@ export async function remotive(p) {
 export async function liveJobs(p, { widen = 0 } = {}) {
   const related = widen === 1 ? relatedTitles(searchRoles(p).slice(0, 2), 3) : null;
   const none = async () => [];
-  const [fed, board, google, remote, featured] = await Promise.all([
+  const [fed, board, google, remote, featured, feeds] = await Promise.all([
     widen === 0 ? usajobs(p) : related ? usajobs(p, related) : none(),
     widen === 0 ? adzuna(p) : related ? adzuna(p, related) : none(),
     jsearch(p, { widen }),
     widen === 0 ? remotive(p) : none(),
     widen === 0 ? employerJobs(p) : none(),
+    widen === 0 ? feedEmployerJobs(p) : none(),
   ]);
   // Take turns between sources so no single one fills the list, then drop repeats (same title and company).
-  const lists = [featured, google, board, isEntryLevel(p) ? [] : fed]; // federal listings rarely suit a first job
+  const lists = [[...feeds, ...featured], google, board, isEntryLevel(p) ? [] : fed]; // federal listings rarely suit a first job
   const mixed = [];
   for (let i = 0; i < Math.max(...lists.map((l) => l.length)); i++) for (const l of lists) if (l[i]) mixed.push(l[i]);
   const seen = new Set();
