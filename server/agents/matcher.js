@@ -15,6 +15,8 @@ import { geocode, metroFor } from "../geo.js";
 import { SAFETY, accessibility } from "./common.js";
 import { jobFacts } from "./fairness.js";
 import { scorecard } from "./scorecard.js";
+import { recall, remember } from "../memo.js";
+import { createHash } from "node:crypto";
 
 const SAMPLE = JSON.parse(readFileSync(new URL("../data/sample-jobs.json", import.meta.url)));
 
@@ -84,14 +86,36 @@ lack, far more years of experience than they have, or work unrelated to their ba
 const compact = (j) => ({ id: j.id, title: j.title, company: j.company, city: j.city, mode: j.work_mode,
   pay: j.pay_min ? `${j.pay_min}-${j.pay_max}` : j.pay_text, exp_years: j.experience_years,
   certs: j.required_certs, clearance: j.clearance, skills: j.skills, source: j.source || "sample", hiring_now: j.hiring_now || undefined,
-  workplace: j.workplace, summary: j.source ? j.summary : undefined });
+  workplace: j.workplace, summary: j.source && j.summary ? String(j.summary).slice(0, SUMMARY_CHARS) : undefined });
+// The shortlist only decides which jobs to score; the Scorecard reads each full posting afterward, so a short
+// opening of the description is enough here (300 characters made a round about 12,000 input tokens).
+const SUMMARY_CHARS = 100;
+
+// Token saver: each shortlist decision (picked or passed over) is saved per applicant and job, using the same
+// store as scorecard judgments (memo.js). A repeat search, a refresh, or "Search again" sends only jobs the model
+// hasn't seen for this applicant; jobs it picked before go straight to scoring (whose judgments are saved too).
+// The key changes when the profile, the language settings, the instructions, or the job's listing changes.
+const decisionKey = (applicant, lang, j) => createHash("sha256").update(JSON.stringify({ v: 1, SYSTEM, lang, applicant, job: compact(j) })).digest("hex");
 
 export async function shortlist(profile, jobs, { session, prefs }) {
+  const applicant = { ...jobFacts(profile), starting_out: isEntryLevel(profile) || undefined };
+  const lang = accessibility(prefs);
+  const keys = jobs.map((j) => decisionKey(applicant, lang, j));
+  const known = await recall(keys);
+  const pickedBefore = jobs.filter((_, i) => known[keys[i]] === true);
+  const unseen = jobs.filter((_, i) => known[keys[i]] === undefined);
+  const fresh = unseen.length ? await pickFrom(applicant, lang, unseen, session) : [];
+  const chosen = new Set(fresh.map((m) => m.id));
+  await remember(unseen.map((j) => [decisionKey(applicant, lang, j), chosen.has(j.id)]));
+  return [...fresh, ...pickedBefore.map((j) => ({ id: j.id, job: j }))].slice(0, SHORTLIST);
+}
+
+async function pickFrom(applicant, lang, jobs, session) {
   const byId = Object.fromEntries(jobs.map((j) => [j.id, j]));
   const { text } = await chat(
     [
-      { role: "system", content: `${SYSTEM}\n${accessibility(prefs)}` },
-      { role: "user", content: `Applicant: ${JSON.stringify({ ...jobFacts(profile), starting_out: isEntryLevel(profile) || undefined })}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
+      { role: "system", content: `${SYSTEM}\n${lang}` },
+      { role: "user", content: `Applicant: ${JSON.stringify(applicant)}\nJobs: ${JSON.stringify(jobs.map(compact))}` },
     ],
     { json: true, agent: "matcher", session, effort: "none" } // a quick pick; the Scorecard checks every job it keeps
   );
@@ -158,10 +182,16 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
       // A failed model call (the provider sometimes returns a 500) is retried once; if it fails again, that one job
       // is skipped instead of failing the whole search.
       const scoreOne = (m) => scorecard({ profile, jobs: [m.job], session, prefs });
-      const cards = (await inParallel(picks, SCORE_PARALLEL, (m) => scoreOne(m).catch(() => scoreOne(m)).catch((err) => {
+      const safely = (m) => scoreOne(m).catch(() => scoreOne(m)).catch((err) => {
         console.error(`Scorecard failed for ${m.job.id}:`, err.message);
         return [];
-      }))).flat();
+      });
+      // Token saver: every scorecard call starts with the same instructions and applicant (~1,500 tokens), which
+      // the model provider bills at a lower "cached input" rate once it has seen them. Calls sent all at once
+      // can't reuse each other, so the first job is scored alone and the rest follow in parallel.
+      const first = picks.length > 1 ? await safely(picks[0]) : [];
+      const rest = picks.length > 1 ? picks.slice(1) : picks;
+      const cards = [...first, ...(await inParallel(rest, SCORE_PARALLEL, safely)).flat()];
       step.score = t2();
       scored += cards.length;
       const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
