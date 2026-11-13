@@ -14,6 +14,8 @@ import { coach } from "./agents/coach.js";
 import { checkJob } from "./agents/jobreader.js";
 import { accountsEnabled, deleteMine, getMine, saveMine, signIn, signOut, signUp } from "./accounts.js";
 import { jsearchQuota, prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
+import { timingSafeEqual } from "node:crypto";
+import { BAIT_PATHS, HONEY, ROBOTS, baitBody, clientId, isFlagged, isHoneyEmail, recentEvents, record, redactContacts, scan, trap } from "./security.js";
 
 const PORT = process.env.PORT || 3001;
 const STARTED = new Date().toISOString(); // shown by /api/health, to confirm a restart picked up new settings
@@ -42,7 +44,13 @@ function send(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+// The body is read once (the security checks read it before the route does) and kept on the request.
 async function readJson(req) {
+  if (req.parsedBody !== undefined) return req.parsedBody;
+  req.parsedBody = await readBody(req);
+  return req.parsedBody;
+}
+async function readBody(req) {
   let raw = "";
   for await (const chunk of req) {
     raw += chunk;
@@ -56,10 +64,8 @@ async function readJson(req) {
 const routes = {
   "GET /api/health": async () => ({ ok: true, started: STARTED, version: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 7),
     database: process.env.DATABASE_URL ? "set" : "missing", accounts: accountsEnabled(), sources: sourcesConfigured(), jsearch_quota: jsearchQuota, ...modelStatus(), last: sourceStatus }),
-  "GET /api/usage": async () => usage,
-  // TEMPORARY (one deploy): shows the caller's own proxy headers, to choose a client address that can't be faked. Removed next commit.
-  "GET /api/ipcheck": async (req) => ({ xff: req.headers["x-forwarded-for"] || null, cf: req.headers["cf-connecting-ip"] || null,
-    true_client: req.headers["true-client-ip"] || null, real_ip: req.headers["x-real-ip"] || null, remote: req.socket.remoteAddress }),
+  // Totals only. Per-session numbers used to be public here, which showed anyone who else was using the app (red-team P1).
+  "GET /api/usage": async () => ({ total: usage.total, byAgent: usage.byAgent }),
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
   "POST /api/import": async (req) => importResume(await readJson(req)),
@@ -117,21 +123,98 @@ function withShareTags(html, req) {
   return html.replace("</head>", `${tags}</head>`);
 }
 
+const sendText = (res, body) => { res.writeHead(200, { "Content-Type": "text/plain" }); res.end(body); };
+const BLOCKED = { error: "This request was blocked." };
+
+// Sign-up and sign-in get their own, tighter limit: "an account with that email already exists" would otherwise let
+// someone test thousands of emails to learn who uses ForeSIGHT (red-team P2).
+const ACCOUNT_LIMIT = { "/api/signup": 5, "/api/login": 10 };
+const accountHits = new Map();
+function accountAllowed(id, path) {
+  const key = `${path}:${id}`, now = Date.now();
+  const recentTries = (accountHits.get(key) || []).filter((t) => now - t < 3600e3);
+  if (recentTries.length >= ACCOUNT_LIMIT[path]) return false;
+  accountHits.set(key, [...recentTries, now]);
+  return true;
+}
+
+// The text a person typed or uploaded in a request, for the attack-phrase scan (not images, not whole job lists).
+function typedText(b = {}) {
+  return [...(Array.isArray(b.messages) ? b.messages.filter((m) => m?.role === "user").map((m) => m.content) : []),
+    b.context, b.tracked?.notes, b.text, b.url, b.kind === "text" ? b.data : "", ...(b.profile?.target_roles || [])]
+    .filter((x) => typeof x === "string").join("\n").slice(0, 20000);
+}
+// Replies from these coaches are checked for contact details the request didn't contain (see security.js).
+const REDACT = new Set(["/api/profile-chat", "/api/intake", "/api/gap", "/api/coach"]);
+
 const server = createServer(async (req, res) => {
   if (req.method === "OPTIONS") return send(res, 204, {});
   const path = req.url.split("?")[0];
+  let plainPath = path;
+  try { plainPath = decodeURIComponent(path); } catch {}
+
+  // Booby traps B1 and B4: bait files and a bait admin area that the app never links to. Only an attacker asks for them.
+  if (path === "/robots.txt") return sendText(res, ROBOTS);
+  if (plainPath.startsWith("/api/admin") || BAIT_PATHS.includes(plainPath)) {
+    trap(req, plainPath.startsWith("/api/admin") ? "trap-admin-bait" : "trap-bait-file", plainPath);
+    const bait = baitBody(plainPath);
+    return bait.type === "json" ? send(res, 200, bait.body) : sendText(res, bait.body);
+  }
   if (!path.startsWith("/api/")) return ["GET", "HEAD"].includes(req.method) ? serveWeb(req, res) : send(res, 404, { error: "Not found" });
+
+  // The owner's view of the security log. Off unless SECURITY_ADMIN_TOKEN is set; a wrong token looks like "not found".
+  if (path === "/api/security-log" && req.method === "GET") {
+    const want = process.env.SECURITY_ADMIN_TOKEN || "";
+    const got = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+    const ok = want && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
+    if (!ok) { record({ rule: "security-log-probe", severity: "medium", req }); return send(res, 404, { error: "Not found" }); }
+    return send(res, 200, { events: recentEvents() });
+  }
 
   const handler = routes[`${req.method} ${path}`];
   if (!handler) return send(res, 404, { error: "Not found" });
-  const ip = (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
-  if (req.method === "POST" && !allowed(ip)) {
+  const id = clientId(req);
+  if (isFlagged(req)) {
+    record({ rule: "blocked-flagged-client", severity: "medium", req, action: "refused (403)" });
+    return send(res, 403, BLOCKED);
+  }
+  if (req.method === "POST" && !allowed(id)) {
+    record({ rule: "hourly-limit", severity: "low", req, action: "refused (429)" });
     return send(res, 429, { error: "You've reached the hourly limit. Please try again in a little while." });
   }
+  if (ACCOUNT_LIMIT[path] && !accountAllowed(id, path)) {
+    record({ rule: "account-probing", severity: "medium", req, action: "refused (429)" });
+    return send(res, 429, { error: "Too many tries. Please wait an hour and try again." });
+  }
   try {
-    send(res, 200, await handler(req));
+    const body = ["POST", "PUT"].includes(req.method) ? await readJson(req) : undefined;
+    // Booby trap B4: the fake model key from the bait .env files, sent back anywhere in the request.
+    if (JSON.stringify(body ?? "").includes(HONEY.apiKey) || JSON.stringify(req.headers).includes(HONEY.apiKey)) {
+      trap(req, "trap-honey-key", "the fake API key from a bait file was sent back");
+      return send(res, 403, BLOCKED);
+    }
+    // Booby trap B2: a sign-in with an account that only exists in the bait admin export. Looks like a normal wrong password.
+    if (path === "/api/login" && isHoneyEmail(body?.email)) {
+      trap(req, "trap-honey-login", "sign-in with a honey account from the bait export");
+      return send(res, 401, { error: "That email and password don't match. Try again." });
+    }
+    const typed = typedText(body);
+    const rules = typed ? scan(typed) : [];
+    if (rules.length) record({ rule: `suspicious-input:${rules.join("+")}`, req, session: body?.session, detail: typed.slice(0, 200) });
+
+    let out = await handler(req);
+    if (REDACT.has(path)) {
+      out = redactContacts(out, JSON.stringify(body ?? ""), (m) =>
+        record({ rule: "contact-in-reply", severity: "medium", req, session: body?.session, detail: `removed ${m.replace(/.(?=.{4})/g, "*")}`, action: "removed from reply" }));
+    }
+    send(res, 200, out);
   } catch (err) {
     if (err.status === 413) res.shouldKeepAlive = false; // unread upload data would break the next request
+    // Booby trap B3: a coach's reply contained the canary hidden in its instructions, so the prompt was being leaked.
+    if (err.code === "canary") {
+      trap(req, "trap-prompt-canary", `canary in ${err.agent} reply`);
+      return send(res, 400, { error: "I can't help with that, but I'm happy to keep working on your job search." });
+    }
     if (!err.status) console.error(`${req.method} ${path} failed:`, err.message);
     send(res, err.status || 500, { error: err.message });
   }

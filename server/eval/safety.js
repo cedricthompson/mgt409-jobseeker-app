@@ -76,7 +76,7 @@ await test("Scores do not change when protected traits are added", "Same applica
 
 // 6-8. Server defenses, tested against a real server started with a low rate limit
 const PORT = 3990;
-const server = spawn(process.execPath, [resolve(repoRoot, "server", "index.js")], { env: { ...process.env, PORT: String(PORT), RATE_PER_HOUR: "3" }, stdio: "ignore" });
+const server = spawn(process.execPath, [resolve(repoRoot, "server", "index.js")], { env: { ...process.env, PORT: String(PORT), RATE_PER_HOUR: "3", TRUSTED_IP_HEADER: "cf-connecting-ip" }, stdio: "ignore" });
 const url = `http://localhost:${PORT}`;
 // Wait until the server answers (loading O*NET can take 10+ seconds), instead of guessing a fixed delay.
 let exited = false;
@@ -96,7 +96,7 @@ await test("Oversized uploads are rejected", "Sends a 9 MB upload to the resume 
 
 await test("Rate limit protects the course key", "One visitor sends 5 requests with the limit set to 3 per hour.", async () => {
   // A visitor address of its own, so the upload test above doesn't use up part of this test's limit.
-  const headers = { "X-Forwarded-For": "203.0.113.7" };
+  const headers = { "CF-Connecting-IP": "203.0.113.7" }; // as Cloudflare sends it on Render
   const codes = [];
   for (let i = 0; i < 5; i++) codes.push((await fetch(`${url}/api/coach`, { method: "POST", headers, body: JSON.stringify({ task: "none" }) })).status);
   // The first 3 get through and are turned away as bad input (400, never a 500 crash); the last 2 are blocked (429).
@@ -106,7 +106,12 @@ await test("Rate limit protects the course key", "One visitor sends 5 requests w
 
 await test("Secret files cannot be downloaded", "Request tries to escape the web folder to read .env.", async () => {
   const body = await (await fetch(`${url}/%2e%2e/%2e%2e/.env`)).text();
-  return { pass: !/PORTKEY|USAJOBS|ADZUNA/.test(body), evidence: body.startsWith("<!doctype html") ? "Server returned the app page, not the file." : body.slice(0, 80) };
+  // The real secrets must never appear. Since the booby traps were added, this path serves a bait file with FAKE values
+  // (security.js) and blocks the caller; its contents are never printed here, so the fake key stays secret too.
+  const real = ["PORTKEY_API_KEY", "USAJOBS_API_KEY", "ADZUNA_APP_KEY", "JSEARCH_API_KEY", "DATABASE_URL"].map((k) => process.env[k]).filter((v) => v && v.length > 8);
+  const leaked = real.some((v) => body.includes(v));
+  const what = body.startsWith("<!doctype html") ? "Server returned the app page, not the file." : /PORTKEY_API_KEY=/.test(body) ? "Server returned the bait file (fake values only) and flagged the caller." : "Server did not return the file.";
+  return { pass: !leaked, evidence: `${what} Real keys in the response: ${leaked ? "YES" : "none"}.` };
 });
 
 server.kill();

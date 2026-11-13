@@ -1,3 +1,4 @@
+import { keepKnown } from "./common.js";
 // Orchestrator: decides which agent handles the next profile-chat turn.
 // The routing check is plain code, so it costs no tokens.
 import { intake } from "./intake.js";
@@ -48,7 +49,9 @@ function gapQuestionsAsked(messages = []) {
 
 export async function profileChat(body) {
   try {
-    return await routeTurn(body);
+    const r = await routeTurn(body);
+    // Design: only known profile fields (or ones the applicant already had) can come back from a coach.
+    return { ...r, profile: keepKnown(r.profile, body.profile) };
   } catch (err) {
     if (err.code !== "content_filter") throw err;
     // The provider's safety filter blocked the message: answer kindly and keep the profile unchanged.

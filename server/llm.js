@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { repoRoot } from "./env.js";
+import { HONEY } from "./security.js";
 
 const BASE_URL = process.env.PORTKEY_BASE_URL || "https://api.portkey.ai/v1";
 const MODEL = process.env.MODEL || "gpt-6-luna";
@@ -75,6 +76,9 @@ export async function chat(messages, { json = false, agent = "other", session = 
 
   const data = await res.json();
   const text = data.choices[0].message.content;
+  // Booby trap B3: every coach's instructions hide a canary code (security.js). It can only appear in a reply if the
+  // model is repeating its instructions, so the reply is stopped and the caller is flagged (see index.js).
+  if (String(text).includes(HONEY.canary)) throw Object.assign(new Error("Prompt leak stopped."), { code: "canary", agent, status: 400 });
   record(agent, session, data.usage);
   if (useCache) {
     cache[key] = { at: Date.now(), text, usage: data.usage };

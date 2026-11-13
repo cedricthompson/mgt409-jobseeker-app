@@ -2,7 +2,7 @@
 // Writes application materials for one job from the applicant's real profile:
 // a tailored resume, a cover letter, a follow-up email, or interview prep.
 import { chat } from "../llm.js";
-import { SAFETY, accessibility } from "./common.js";
+import { SAFETY, accessibility, rulesFor } from "./common.js";
 import { jobFacts } from "./fairness.js";
 
 const TASKS = {
@@ -13,7 +13,7 @@ const TASKS = {
 };
 
 const SYSTEM = `You are the Application Coach agent of a job search app.
-${SAFETY}
+${rulesFor("marcus")}
 - Use only facts in the applicant profile. Where a detail is needed but unknown (a number, a date, a name), write a placeholder in square brackets like [number of tickets per week] for the applicant to fill in.
 - Never include protected traits, photos, age, or graduation years that reveal age.
 Reply ONLY with JSON: {"title": string, "content": string, "tips": [string]}

@@ -3,10 +3,10 @@
 // resume straight into a profile.
 // Speech is turned into text on the device (iOS, Android, or browser dictation), so it costs no tokens.
 import { chat } from "../llm.js";
-import { PROFILE_SHAPE, SAFETY, accessibility } from "./common.js";
+import { PROFILE_SHAPE, SAFETY, accessibility, rulesFor, keepKnown } from "./common.js";
 
 const SYSTEM = `You read resumes and LinkedIn profiles for a job search app and extract a structured profile.
-${SAFETY}
+${rulesFor("maya")}
 Reply ONLY with JSON: {"profile": ${PROFILE_SHAPE}, "summary": string, "missing": [string]}
 Capture everything the resume states so the applicant is never asked for it again: every job with all duties and accomplishments (keep numbers like team size, budgets, and results), tools and software, skills, certifications, degrees, and the city.
 If target roles are not stated, infer 1-3 from the most recent titles and career direction. Never guess target pay.
@@ -47,5 +47,6 @@ export async function importResume({ kind, data, mimeType = "image/jpeg", sessio
     if (/invalid_file|invalid_image|badly formatted|corrupted/i.test(err.message)) throw new Error(CANT_READ);
     throw err;
   }
-  return JSON.parse(text);
+  const out = JSON.parse(text);
+  return { ...out, profile: keepKnown(out.profile) }; // only known profile fields (design defense)
 }

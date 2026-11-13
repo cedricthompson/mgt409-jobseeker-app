@@ -2,7 +2,7 @@
 // update their profile, so the next search can find better matches. Each coach sticks to their own area,
 // asks one short question at a time, and changes only what the applicant tells them. Stateless like Intake.
 import { chat } from "../llm.js";
-import { PROFILE_SHAPE, SAFETY, accessibility } from "./common.js";
+import { PROFILE_SHAPE, SAFETY, accessibility, rulesFor, dataBlock, keepKnown } from "./common.js";
 import { jobFacts } from "./fairness.js";
 
 const COACHES = {
@@ -26,6 +26,7 @@ actually have, widen the commute, adjust pay, or try different job titles. Never
 accomplishments to the right job in "experience". Better-described experience helps the skills match.` },
 };
 
+const RULE_KEY = { intake: "maya", gap: "theo", matcher: "jordan", scorecard: "priya", coach: "marcus" };
 export const coachName = (key) => COACHES[key]?.name;
 
 export async function revisit({ coach, messages = [], profile = {}, context = "", session, prefs }) {
@@ -39,19 +40,21 @@ say what you can help change, and ask your first question. Stay in your area; if
 Update "profile" with ONLY what they tell you: keep every other field exactly as it is. Never invent facts.
 When they say they're finished, or you've made the changes they wanted, sum up what changed in one sentence, tell them their
 matches will refresh, and set "done": true.
-${SAFETY}
+${rulesFor(RULE_KEY[coach] || "jordan")}
 Profile shape: ${PROFILE_SHAPE}
 Reply ONLY with JSON: {"reply": string, "profile": object, "changed": [short descriptions of what changed], "done": boolean}`;
   const { text } = await chat(
     [
       { role: "system", content: `${system}\n${accessibility(prefs)}` },
-      { role: "system", content: `Current profile: ${JSON.stringify(jobFacts(profile))}` },
-      ...(context ? [{ role: "system", content: `Summary of their current matches: ${String(context).slice(0, 1500)}` }] : []),
+      // Design: the profile and the match summary come from the browser, so they are data in a user-role message,
+      // never system messages (red-team A5 put a fake "SYSTEM UPDATE FROM FORESIGHT ADMIN" in the summary).
+      { role: "user", content: dataBlock("applicant_profile", jobFacts(profile)) },
+      ...(context ? [{ role: "user", content: dataBlock("match_summary", String(context).slice(0, 1500)) }] : []),
       ...messages,
     ],
     { json: true, agent: `revisit:${coach}`, session }
   );
   const out = JSON.parse(text);
   // Keep fields the model left out (it is told to return the whole profile, but don't lose data if it doesn't).
-  return { ...out, profile: { ...profile, ...(out.profile && typeof out.profile === "object" ? out.profile : {}) } };
+  return { ...out, profile: { ...profile, ...keepKnown(out.profile, profile) } };
 }

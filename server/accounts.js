@@ -19,7 +19,8 @@ const MAX_DATA = 1024 * 1024; // 1 MB of saved data per applicant is far more th
 const fail = (message, status = 400) => Object.assign(new Error(message), { status });
 
 // ---- Storage ----
-const FILE = new URL("./data/accounts.local.json", import.meta.url);
+// ACCOUNTS_FILE lets tests (server/eval/redteam.js) use a throwaway file instead of the real local accounts.
+const FILE = process.env.ACCOUNTS_FILE ? new URL(`file://${process.env.ACCOUNTS_FILE}`) : new URL("./data/accounts.local.json", import.meta.url);
 
 function fileStore() {
   const db = existsSync(FILE) ? JSON.parse(readFileSync(FILE, "utf8")) : { next: 1, accounts: [], sessions: {}, saved: {} };

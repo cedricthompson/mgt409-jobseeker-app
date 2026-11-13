@@ -140,6 +140,13 @@ others), bike, or walking. With `GOOGLE_MAPS_API_KEY`, it uses real routes and t
 | Agent malfunction | A failed model call is retried once, then that one job is skipped instead of failing the search; each search request returns after about a minute with what it found |
 | Leaked secrets | Keys live only in `.env` / the host's settings (never committed); the web server refuses paths outside the app folder |
 
+**Red team:** an attacker posing as a job seeker tries to get other people's information from all five coaches and the
+platform ([`security/ATTACK_PROTOCOL.md`](security/ATTACK_PROTOCOL.md), run by [`server/eval/redteam.js`](server/eval/redteam.js)).
+Before the defenses 12 of 15 attacks were stopped ([`evidence/redteam-before.md`](evidence/redteam-before.md)); after them,
+20 of 20, including four booby traps ([`evidence/redteam.md`](evidence/redteam.md)). The three levels of defense (code,
+design, prompts) and the traps are described in [`security/README.md`](security/README.md); every coach's rules live in
+[`prompts/prompt.md`](prompts/prompt.md); what we learned is in [`security/LESSONS.md`](security/LESSONS.md) (add-only).
+
 **Tested:** [`server/eval/safety.js`](server/eval/safety.js) runs 8 attacks and malfunctions against the real app (prompt
 injection in a resume, a jailbreak, protected traits, invented credentials, bias in scores, an oversized upload, the rate
 limit, and reading `.env`). Results: [`evidence/safety.md`](evidence/safety.md) (8 of 8 passed).

@@ -12,7 +12,7 @@ import { readFileSync } from "node:fs";
 import { chat } from "../llm.js";
 import { isEntryLevel, liveJobs, markHiringNow, MAX_WIDEN, searchRoles } from "../sources.js";
 import { geocode, metroFor } from "../geo.js";
-import { SAFETY, accessibility } from "./common.js";
+import { SAFETY, accessibility, rulesFor } from "./common.js";
 import { jobFacts } from "./fairness.js";
 import { scorecard } from "./scorecard.js";
 import { recall, remember } from "../memo.js";
@@ -77,7 +77,7 @@ real chance of BOTH getting an interview and getting the offer. Only jobs where 
 - Consider transferable experience (e.g. shift lead -> supervisor roles), pay target, and work mode. Never use protected traits.
 - If the applicant is starting out (little or no work history), favor entry-level jobs that need no experience
   (fast food, retail, customer service, warehouse, and similar), especially ones marked hiring_now.
-${SAFETY}
+${rulesFor("jordan")}
 Reply ONLY with JSON: {"ids": [string]}, the job ids, best chance first. Nothing else: the Scorecard explains each job.
 Return up to ${SHORTLIST} jobs. The Scorecard checks each job's odds next, so include every job the
 applicant could plausibly get; leave out only jobs that clearly don't fit (a required license, degree, or clearance they
