@@ -704,7 +704,6 @@
 
   <h3>Limits</h3>
   <ul class="tight">
-    <li><strong>The chances are estimates that have not been checked against real outcomes.</strong> They start from Bureau of Labor Statistics hiring and turnover patterns for each kind of job and are adjusted by fit using fixed rules we set. They are a reasoned starting point, not a model trained on what actually happened to job seekers like these. Until the pilot data in Section 7 comes in, a "70%" means "a strong fit by our rules," not a measured 70%.</li>
     <li><strong>The model's judgment varies from run to run, more than we would like.</strong> Priya's reading of a job's requirements comes from the model, so scoring the same job twice can give different numbers. When we rescored the same seven real jobs for the same job seeker on November 13, 2026, one job's chance of an interview was 66% on one run and 43% on another. For a job near the 50% line, that can decide whether it is shown.</li>
     <li><strong>Removing protected traits does not remove every proxy for them.</strong> The fairness filter keeps age, race, gender and similar traits away from the model, but a graduation year, a long gap in work history or a neighborhood can still hint at them. Our fairness test checked the traits themselves, not these proxies.</li>
     <li><strong>We do not see every job.</strong> LinkedIn and Indeed offer no public job search and do not allow scraping, so their listings arrive only through Google for Jobs. The Google for Jobs plan allows 10,000 searches a month, and listings can be out of date or posted more than once.</li>
@@ -716,7 +715,7 @@
   <h3>Next steps</h3>
   <ol class="tight">
     <li><strong>Pilot with a workforce partner.</strong> Run ForeSIGHT with one workforce board or training program for 90 days and measure the outcomes in Section 7.</li>
-    <li><strong>Calibrate the chances with real outcomes.</strong> Use the predictions saved in the tracker to adjust the rules so that a 70% chance means about 70% of those jobs lead to interviews.</li>
+    <li><strong>Calibrate the chances with ForeSIGHT's own outcomes.</strong> The chances already rest on public data: each kind of job starts from U.S. hiring and turnover patterns in the Bureau of Labor Statistics' Employee Tenure and Job Openings and Labor Turnover (JOLTS) data and from typical applicant-to-interview ratios, and fixed rules adjust them for each person's fit. The next step is to tune those rules with real results. The tracker already saves every prediction at the moment a job seeker applies, so as people report interviews, offers and how long they stay, we can check that a 70% chance means about 70% of those jobs lead to an interview, and adjust where it doesn't.</li>
     <li><strong>Steady the scores.</strong> Score each job more than once and average, or keep the model's first reading of a job's requirements for every later score, so the same job seeker and job get the same chances every time.</li>
     <li><strong>Test for proxy bias.</strong> Add fairness tests that vary graduation year, work gaps and ZIP code, not just the protected traits themselves.</li>
     <li><strong>Add a case-manager view.</strong> Let a case manager see their job seekers' matches and progress in one place, with the job seeker's permission.</li>
