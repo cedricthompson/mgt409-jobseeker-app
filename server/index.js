@@ -57,6 +57,9 @@ const routes = {
   "GET /api/health": async () => ({ ok: true, started: STARTED, version: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 7),
     database: process.env.DATABASE_URL ? "set" : "missing", accounts: accountsEnabled(), sources: sourcesConfigured(), jsearch_quota: jsearchQuota, ...modelStatus(), last: sourceStatus }),
   "GET /api/usage": async () => usage,
+  // TEMPORARY (one deploy): shows the caller's own proxy headers, to choose a client address that can't be faked. Removed next commit.
+  "GET /api/ipcheck": async (req) => ({ xff: req.headers["x-forwarded-for"] || null, cf: req.headers["cf-connecting-ip"] || null,
+    true_client: req.headers["true-client-ip"] || null, real_ip: req.headers["x-real-ip"] || null, remote: req.socket.remoteAddress }),
   "POST /api/intake": async (req) => intake(await readJson(req)),
   "POST /api/gap": async (req) => gap(await readJson(req)),
   "POST /api/import": async (req) => importResume(await readJson(req)),
