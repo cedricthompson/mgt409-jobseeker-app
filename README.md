@@ -217,8 +217,7 @@ report/report.html      Final project report (one self-contained file; open it b
 
 [`report/report.html`](report/report.html) is the MGT 409 final report: one HTML file with every screenshot built in, so it opens
 by double-clicking on any computer. All eight sections are drafted: title, motivation, what's new, the agents with a live traced
-run, tokenomics, safety (with before-and-after test results), impact, and limits and next steps. Two statistics, marked in
-yellow, still need sources.
+run, tokenomics, safety (with before-and-after test results), impact, and limits and next steps.
 
 ## Credits
 
