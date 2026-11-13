@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { Fragment, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { Prefs, Profile } from './api';
 import { applyTheme, isDark } from './theme';
 import WelcomeScreen from './screens/WelcomeScreen';
@@ -15,7 +16,7 @@ import CheckJobScreen from './screens/CheckJobScreen';
 import ScoreScreen from './screens/ScoreScreen';
 import AccountScreen from './screens/AccountScreen';
 import { getAccount, pull, scheduleSync } from './account';
-import { API_URL } from './api';
+import { API_URL, logEvent } from './api';
 import { StartMethod } from './start';
 
 type Screen = 'welcome' | 'import' | 'chat' | 'matches' | 'tracker' | 'coach' | 'settings' | 'check' | 'account' | 'score';
@@ -31,6 +32,15 @@ export default function App() {
   const [chatWith, setChatWith] = useState<{ coach: string; context: string } | null>(null);
   const [startMethod, setStartMethod] = useState<StartMethod | undefined>();
   const [coachFor, setCoachFor] = useState<{ item: TrackedJob; task: CoachTask } | null>(null);
+
+  // Anonymous usage counts: one "visit" per app launch (first time or returning), then each page opened.
+  useEffect(() => {
+    AsyncStorage.getItem('visited.v1').then((v) => {
+      logEvent('visit', { returning: !!v, platform: Platform.OS });
+      if (!v) AsyncStorage.setItem('visited.v1', '1');
+    });
+  }, []);
+  useEffect(() => { if (screen !== 'welcome') logEvent('screen', { screen }); }, [screen]);
 
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   // Sign-in shows only when the server has accounts turned on (it needs a database when hosted).
@@ -66,7 +76,7 @@ export default function App() {
     <Fragment key={themeKey}>
       {screen === 'welcome' && (
         <WelcomeScreen
-          onStart={(m?: StartMethod) => { setStartMethod(m); setScreen('import'); }}
+          onStart={(m?: StartMethod) => { logEvent('start', { method: m ?? 'button' }); setStartMethod(m); setScreen('import'); }}
           onTracker={() => setScreen('tracker')}
           onCheckJob={() => setScreen('check')}
           onScorecard={() => setScreen('score')}
@@ -82,7 +92,7 @@ export default function App() {
       {screen === 'score' && (
         <ScoreScreen
           onBack={() => setScreen('welcome')}
-          onStart={() => { setStartMethod(undefined); setScreen('import'); }}
+          onStart={() => { logEvent('start', { method: 'button' }); setStartMethod(undefined); setScreen('import'); }}
           onCheckJob={() => setScreen('check')}
         />
       )}

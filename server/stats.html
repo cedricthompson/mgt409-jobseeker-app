@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ForeSIGHT usage stats</title>
+<style>
+  :root { --blue: #3A56A6; --red: #D71F2D; --ink: #1A1A1A; --muted: #555; --line: #DDE2EC; --tint: #EEF2FB; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #F7F8FB; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 30px; margin: 0 0 4px; } h1 span { color: var(--red); }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  p.note { color: var(--muted); margin: 0 0 20px; font-size: 15px; }
+  form, .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 20px; }
+  label { display: grid; gap: 4px; font-weight: 700; font-size: 15px; }
+  input, select { font: inherit; padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; min-height: 48px; }
+  input { width: 320px; max-width: 100%; }
+  button { font: inherit; font-weight: 700; color: #fff; background: var(--blue); border: 0; border-radius: 999px; padding: 0 24px; min-height: 48px; cursor: pointer; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .tile b { display: block; font-size: 34px; line-height: 1.1; color: var(--blue); }
+  .tile span { color: var(--muted); font-size: 15px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 6px 0; vertical-align: middle; }
+  td.n { text-align: right; width: 64px; font-variant-numeric: tabular-nums; font-weight: 700; }
+  td.bar { width: 40%; padding-left: 10px; }
+  .bar div { height: 10px; background: var(--blue); border-radius: 5px; min-width: 2px; }
+  .empty { color: var(--muted); font-size: 15px; }
+  #error { color: var(--red); font-weight: 700; }
+  .daily { display: flex; align-items: end; gap: 3px; height: 120px; border-bottom: 1px solid var(--line); }
+  .daily div { flex: 1; background: var(--blue); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .days { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fore<span>SIGHT</span> usage stats</h1>
+  <p class="note">Anonymous counts only: no names, emails, IP addresses, resumes, or chat text are kept. A "visit" is one time someone opens the app.
+    Profile details are counted once per visit, when the person reaches their job matches. Small numbers can still point to one person, so share totals, not the raw lists.</p>
+  <form id="f">
+    <label>Admin token <input id="token" type="password" autocomplete="current-password" required></label>
+    <label>Period <select id="days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last year</option></select></label>
+    <button>Show stats</button>
+    <span id="error" role="alert"></span>
+  </form>
+  <div id="out" aria-live="polite"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+$("token").value = sessionStorage.getItem("statsToken") || "";
+const LABELS = { resume: "Upload a resume", linkedin: "LinkedIn PDF", photo: "Photo of a resume", speak: "Talk out loud", button: "Get started button" };
+
+function table(rows, labelOf = (r) => r.label) {
+  if (!rows.length) return '<p class="empty">Nothing yet.</p>';
+  const max = Math.max(...rows.map((r) => r.count ?? r.visits), 1);
+  return `<table>${rows.map((r) => { const n = r.count ?? r.visits; return `<tr><td>${esc(labelOf(r))}</td><td class="n">${n}</td><td class="bar"><div style="width:${(100 * n) / max}%"></div></td></tr>`; }).join("")}</table>`;
+}
+const card = (title, body) => `<section class="card"><h2>${title}</h2>${body}</section>`;
+
+function render(s) {
+  const pf = s.profiles;
+  const f = s.funnel;
+  const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : "–");
+  const maxDay = Math.max(...s.daily.map((d) => d.visits), 1);
+  $("out").innerHTML = `
+    <div class="tiles">
+      <div class="tile"><b>${s.visits}</b><span>visits</span></div>
+      <div class="tile"><b>${s.new_visits}</b><span>first-time visits</span></div>
+      <div class="tile"><b>${s.returning_visits}</b><span>returning visits</span></div>
+      <div class="tile"><b>${f[3].visits}</b><span>saw job matches (${pct(f[3].visits, f[0].visits)})</span></div>
+      <div class="tile"><b>${f[6].visits}</b><span>marked a job as applied</span></div>
+      <div class="tile"><b>${s.other.created_an_account}</b><span>accounts created</span></div>
+    </div>
+    <div class="grid">
+      ${card("How far people get", table(f, (r) => r.step) + `<p class="empty">Each row counts visits that reached that step.</p>`)}
+      ${card("Visits per day", s.daily.length ? `<div class="daily" role="img" aria-label="Visits per day">${s.daily.map((d) => `<div title="${d.day}: ${d.visits}" style="height:${(100 * d.visits) / maxDay}%"></div>`).join("")}</div>
+        <div class="days"><span>${s.daily[0].day}</span><span>${s.daily[s.daily.length - 1].day}</span></div>` : '<p class="empty">Nothing yet.</p>')}
+      ${card("How people start", table(s.start_methods, (r) => LABELS[r.label] || r.label))}
+      ${card(`Cities <small>(${pf.counted} profiles)</small>`, table(pf.cities))}
+      ${card("Jobs people want", table(pf.target_roles))}
+      ${card("Education", table(pf.education))}
+      ${card("Target pay (yearly)", table(pf.pay_bands))}
+      ${card("Remote or in person", table(pf.work_modes))}
+      ${card("How they get to work", table(pf.commute_modes))}
+      ${card("Tracker activity", table(s.tracker_stages))}
+      ${card("Pages opened", table(s.screens))}
+      ${card("Other", `<table><tr><td>Visits that checked a job they found</td><td class="n">${s.other.checked_a_job}</td></tr></table>`)}
+    </div>
+    <p class="note" style="margin-top:16px">Period: last ${s.days} days. Generated ${new Date(s.generated).toLocaleString()}.</p>`;
+}
+
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("error").textContent = "";
+  const token = $("token").value.trim();
+  try {
+    const r = await fetch(`/api/stats?days=${$("days").value}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.status === 404) throw new Error("That token didn't work. Check SECURITY_ADMIN_TOKEN in the Render dashboard.");
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Request failed (${r.status})`);
+    sessionStorage.setItem("statsToken", token);
+    render(await r.json());
+  } catch (err) { $("error").textContent = err.message; }
+});
+if ($("token").value) $("f").requestSubmit();
+</script>
+</body>
+</html>

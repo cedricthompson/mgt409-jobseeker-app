@@ -7,6 +7,15 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL
   ?? (Platform.OS === 'web' && !__DEV__ ? '' : 'http://localhost:3001');
 export const session = Math.random().toString(36).slice(2);
 
+// Anonymous usage counts (server/stats.js): a few event names with no personal details, tied only to this
+// visit's random id. Browsers that send the Global Privacy Control signal are never counted.
+export const track = !(typeof navigator !== 'undefined' && (navigator as { globalPrivacyControl?: boolean }).globalPrivacyControl);
+export function logEvent(name: 'visit' | 'start' | 'screen' | 'tracker_add' | 'tracker_move', props: Record<string, unknown> = {}) {
+  if (!track) return;
+  fetch(`${API_URL}/api/event`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session, name, props }) })
+    .catch(() => { /* counting never gets in the way */ });
+}
+
 export type Profile = Record<string, unknown>;
 export type Prefs = { plain_language?: boolean; one_step?: boolean; language?: string; read_aloud?: boolean; reduce_motion?: boolean;
   look?: 'light' | 'dark' | 'contrast'; text_scale?: number };
@@ -26,7 +35,7 @@ export async function post<T>(path: string, body: object): Promise<T> {
   const res = await send(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session, ...body }),
+    body: JSON.stringify({ session, track, ...body }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);

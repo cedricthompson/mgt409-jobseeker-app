@@ -1,3 +1,4 @@
+import { APP_NAME } from '../brand';
 import * as Speech from 'expo-speech';
 import { Pressable, SafeAreaView, ScrollView, Switch, Text, View } from 'react-native';
 import { Prefs } from '../api';
@@ -126,6 +127,15 @@ export default function SettingsScreen({ prefs, onChange, onBack }: { prefs: Pre
           <Text style={type.small}>
             Larger text, screen readers (VoiceOver, TalkBack), voice control, switch control, and keyboard navigation on the web.
             Every button has a spoken label. You can speak any answer using your keyboard's microphone.
+          </Text>
+        </View>
+
+        <View style={styles.note}>
+          <Text style={styles.label}>How we count visits</Text>
+          <Text style={type.small}>
+            To improve {APP_NAME}, we count visits and how far people get, along with general details such as your city, education
+            level, pay range, and the kinds of jobs you want. We never count your name, email, resume, or what you type to the coaches,
+            and nothing is shared. To opt out, turn on Global Privacy Control in your browser.
           </Text>
         </View>
       </ScrollView>

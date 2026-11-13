@@ -4,6 +4,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import { scheduleSync } from './account';
+import { logEvent } from './api';
 
 export const STAGES = ['Saved', 'Applied', 'Screening', 'Interviewing', 'Offer', 'Closed'] as const;
 export type Stage = (typeof STAGES)[number];
@@ -42,6 +43,7 @@ export function useTracker() {
   const add = useCallback((id: string, job: TrackedJob['job'], score?: TrackedJob['score'], stage: Stage = 'Saved') => {
     setItems((cur) => {
       if (cur.some((t) => t.id === id)) return cur;
+      logEvent('tracker_add', { stage });
       const now = today();
       const next = [{ id, job, score, stage, notes: '', savedAt: now, history: [{ stage, at: now }],
         ...(stage === 'Applied' && { appliedAt: now, followUp: addDays(7) }) }, ...cur];
@@ -56,6 +58,7 @@ export function useTracker() {
 
   const move = useCallback((id: string, stage: Stage, outcome?: Outcome) => {
     const now = today();
+    logEvent('tracker_move', { stage });
     save(items.map((t) => (t.id !== id ? t : {
       ...t, stage, outcome: stage === 'Closed' ? outcome : undefined,
       history: [...t.history, { stage, at: now }],

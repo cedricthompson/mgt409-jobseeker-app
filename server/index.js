@@ -15,6 +15,7 @@ import { checkJob } from "./agents/jobreader.js";
 import { accountsEnabled, deleteMine, getMine, saveMine, signIn, signOut, signUp } from "./accounts.js";
 import { jsearchQuota, prefetchJobs, sourceStatus, sourcesConfigured } from "./sources.js";
 import { timingSafeEqual } from "node:crypto";
+import { recordClientEvent, recordServerEvent, summary } from "./stats.js";
 import { BAIT_PATHS, HONEY, ROBOTS, baitBody, clientId, isFlagged, isHoneyEmail, recentEvents, record, redactContacts, scan, trap } from "./security.js";
 
 const PORT = process.env.PORT || 3001;
@@ -85,6 +86,7 @@ const routes = {
   "GET /api/me": async (req) => getMine(req),
   "PUT /api/me": async (req) => saveMine(req, await readJson(req)),
   "DELETE /api/me": async (req) => deleteMine(req),
+  "POST /api/event": async () => ({ ok: true }), // handled before the hourly limit (see below)
 };
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
@@ -121,6 +123,33 @@ function withShareTags(html, req) {
     `<link rel="apple-touch-icon" href="/apple-touch-icon.png">`, `<meta name="theme-color" content="#3A56A6">`,
   ].join("");
   return html.replace("</head>", `${tags}</head>`);
+}
+
+// The owner check for /api/security-log and /api/stats. Off unless SECURITY_ADMIN_TOKEN is set.
+// Wrong tokens are limited to 10 an hour per visitor, so the token can't be guessed by trying many.
+const ownerMisses = new Map();
+function isOwner(req) {
+  const id = clientId(req), now = Date.now();
+  const misses = (ownerMisses.get(id) || []).filter((t) => now - t < 3600e3);
+  if (misses.length >= 10) return false;
+  if (checkOwnerToken(req)) return true;
+  ownerMisses.set(id, [...misses, now]);
+  return false;
+}
+function checkOwnerToken(req) {
+  const want = process.env.SECURITY_ADMIN_TOKEN || "";
+  const got = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  return !!want && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
+}
+
+// Usage events from the app: up to 600 an hour per visitor, far more than real use needs.
+const eventHits = new Map();
+function eventAllowed(id) {
+  const now = Date.now();
+  const recent = (eventHits.get(id) || []).filter((t) => now - t < 3600e3);
+  if (recent.length >= 600) return false;
+  eventHits.set(id, [...recent, now]);
+  return true;
 }
 
 const sendText = (res, body) => { res.writeHead(200, { "Content-Type": "text/plain" }); res.end(body); };
@@ -160,15 +189,23 @@ const server = createServer(async (req, res) => {
     const bait = baitBody(plainPath);
     return bait.type === "json" ? send(res, 200, bait.body) : sendText(res, bait.body);
   }
+  // The owner's stats page. It holds no data itself: it asks for the admin token, then reads /api/stats.
+  if (path === "/stats" && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "text/html", "X-Robots-Tag": "noindex", "Cache-Control": "no-store" });
+    return res.end(readFileSync(resolve(repoRoot, "server", "stats.html")));
+  }
   if (!path.startsWith("/api/")) return ["GET", "HEAD"].includes(req.method) ? serveWeb(req, res) : send(res, 404, { error: "Not found" });
 
   // The owner's view of the security log. Off unless SECURITY_ADMIN_TOKEN is set; a wrong token looks like "not found".
   if (path === "/api/security-log" && req.method === "GET") {
-    const want = process.env.SECURITY_ADMIN_TOKEN || "";
-    const got = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const ok = want && got.length === want.length && timingSafeEqual(Buffer.from(got), Buffer.from(want));
-    if (!ok) { record({ rule: "security-log-probe", severity: "medium", req }); return send(res, 404, { error: "Not found" }); }
+    if (!isOwner(req)) { record({ rule: "security-log-probe", severity: "medium", req }); return send(res, 404, { error: "Not found" }); }
     return send(res, 200, { events: recentEvents() });
+  }
+  // The owner's anonymous usage totals (read by the /stats page), locked with the same token.
+  if (path === "/api/stats" && req.method === "GET") {
+    if (!isOwner(req)) { record({ rule: "stats-probe", severity: "medium", req }); return send(res, 404, { error: "Not found" }); }
+    try { return send(res, 200, await summary(new URL(req.url, "http://x").searchParams.get("days"))); }
+    catch (err) { console.error("Stats failed:", err.message); return send(res, 500, { error: "Stats are unavailable right now." }); }
   }
 
   const handler = routes[`${req.method} ${path}`];
@@ -177,6 +214,12 @@ const server = createServer(async (req, res) => {
   if (isFlagged(req)) {
     record({ rule: "blocked-flagged-client", severity: "medium", req, action: "refused (403)" });
     return send(res, 403, BLOCKED);
+  }
+  // Usage counts from the app have their own, roomier limit so they never use up a visitor's coaching requests.
+  if (path === "/api/event") {
+    if (!eventAllowed(id)) return send(res, 429, { error: "Too many events." });
+    try { recordClientEvent(await readJson(req)); } catch { /* not counted */ }
+    return send(res, 200, { ok: true });
   }
   if (req.method === "POST" && !allowed(id)) {
     record({ rule: "hourly-limit", severity: "low", req, action: "refused (429)" });
@@ -207,6 +250,7 @@ const server = createServer(async (req, res) => {
       out = redactContacts(out, JSON.stringify(body ?? ""), (m) =>
         record({ rule: "contact-in-reply", severity: "medium", req, session: body?.session, detail: `removed ${m.replace(/.(?=.{4})/g, "*")}`, action: "removed from reply" }));
     }
+    recordServerEvent(path, body);
     send(res, 200, out);
   } catch (err) {
     if (err.status === 413) res.shouldKeepAlive = false; // unread upload data would break the next request
