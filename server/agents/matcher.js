@@ -10,7 +10,7 @@
 // continues from the next round and skips every job already checked.
 import { readFileSync } from "node:fs";
 import { chat } from "../llm.js";
-import { isEntryLevel, liveJobs, markHiringNow, MAX_WIDEN } from "../sources.js";
+import { isEntryLevel, liveJobs, markHiringNow, MAX_WIDEN, searchRoles } from "../sources.js";
 import { geocode, metroFor } from "../geo.js";
 import { SAFETY, accessibility } from "./common.js";
 import { jobFacts } from "./fairness.js";
@@ -26,6 +26,18 @@ const SHORTLIST = 20; // jobs scored per round
 // Speed: the Scorecard scores one job per call, up to 12 calls at once. Measured on 7 real jobs: 31 s in one call,
 // 8 s one per call in parallel (each call writes a short answer, and they all run at the same time).
 const SCORE_PARALLEL = 12;
+// Speed (Nov 2026: Pro JSearch plus employer feeds brought ~70 jobs a round, and a search took 2.5 minutes):
+const SHORTLIST_MAX = 35; // jobs the model reads per round, best title fits first
+const TIME_BUDGET = 60e3; // once a request has run this long and found a match, show it; "Keep looking" does the rest
+
+// Jobs whose titles share the most words with the roles being searched go first, so the shortlist reads the
+// likeliest fits. Ties keep the sources' turn-taking order.
+const titleWords = (t) => String(t || "").toLowerCase().split(/[^a-z0-9+#]+/).filter((w) => w.length > 2);
+function byTitleFit(profile, jobs) {
+  const want = new Set(searchRoles(profile).flatMap(titleWords));
+  return jobs.map((j, i) => ({ j, i, fit: titleWords(j.title).filter((w) => want.has(w)).length }))
+    .sort((a, b) => b.fit - a.fit || a.i - b.i).map((x) => x.j);
+}
 
 // Runs fn over items with at most `limit` running at once, keeping the order.
 async function inParallel(items, limit, fn) {
@@ -121,7 +133,9 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
   // Speed: the next round's search starts while this round is being scored, so widening doesn't wait on the job sites.
   // (Searches are cached for an hour, so one that ends up unused costs nothing if the applicant keeps looking.)
   let upcoming = liveJobs(profile, { widen: r });
-  for (; r <= MAX_WIDEN && r < first + ROUNDS_PER_REQUEST && found.length < enough; r++) {
+  const started = Date.now();
+  for (; r <= MAX_WIDEN && r < first + ROUNDS_PER_REQUEST && found.length < enough
+    && !(found.length && Date.now() - started > TIME_BUDGET); r++) {
     const searchTime = clock();
     const live = await upcoming;
     const step = { round: r, search: searchTime() };
@@ -137,7 +151,7 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
     considered += fresh.length;
     if (fresh.length) {
       const t1 = clock();
-      const pick = () => shortlist(profile, fresh.slice(0, 60), { session, prefs }); // cap keeps the call affordable
+      const pick = () => shortlist(profile, byTitleFit(profile, fresh).slice(0, SHORTLIST_MAX), { session, prefs });
       const picks = await pick().catch(() => pick()); // one retry if the model call fails
       step.shortlist = t1();
       const t2 = clock();
