@@ -27,6 +27,8 @@ export default function App() {
   const [profile, setProfileState] = useState<Profile>({});
   const [prefs, setPrefsState] = useState<Prefs>({});
   const [hasMatches, setHasMatches] = useState(false);
+  // Set when the applicant opens a chat with one coach from the matches page.
+  const [chatWith, setChatWith] = useState<{ coach: string; context: string } | null>(null);
   const [startMethod, setStartMethod] = useState<StartMethod | undefined>();
   const [coachFor, setCoachFor] = useState<{ item: TrackedJob; task: CoachTask } | null>(null);
 
@@ -95,13 +97,17 @@ export default function App() {
       )}
       {screen === 'chat' && (
         <ChatScreen
+          key={chatWith?.coach || 'profile'}
           profile={profile}
           prefs={prefs}
-          onBack={() => setScreen('import')}
-          onDone={(p) => { setProfile(p); setHasMatches(true); setScreen('matches'); }}
+          coach={chatWith?.coach}
+          context={chatWith?.context}
+          onBack={() => (chatWith ? setScreenState('matches') : setScreen('import'))}
+          onDone={(p) => { setProfile(p); setHasMatches(true); setChatWith(null); setScreen('matches'); }}
         />
       )}
-      {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => setScreen('chat')} onTracker={() => setScreen('tracker')} onCheckJob={() => setScreen('check')} signedIn={!!accountEmail || !accountsOn} onAccount={() => setScreen('account')} />}
+      {screen === 'matches' && <MatchesScreen profile={profile} prefs={prefs} onBack={() => { setChatWith(null); setScreen('chat'); }}
+        onCoach={(coach, context) => { setChatWith({ coach, context }); setScreen('chat'); }} onTracker={() => setScreen('tracker')} onCheckJob={() => setScreen('check')} signedIn={!!accountEmail || !accountsOn} onAccount={() => setScreen('account')} />}
       {screen === 'account' && (
         <AccountScreen
           email={accountEmail}

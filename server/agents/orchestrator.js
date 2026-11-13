@@ -2,6 +2,7 @@
 // The routing check is plain code, so it costs no tokens.
 import { intake } from "./intake.js";
 import { gap } from "./gap.js";
+import { revisit } from "./revisit.js";
 
 const filled = (v) => v !== null && v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0);
 
@@ -59,6 +60,11 @@ export async function profileChat(body) {
 async function routeTurn(raw) {
   // The model only accepts role and content, so the agent tag is removed before any agent sees the chat.
   const body = { ...raw, messages: (raw.messages || []).map(({ role, content }) => ({ role, content })) };
+  // Coming back from the matches page to talk with one chosen coach (see revisit.js).
+  if (raw.coach) {
+    const r = await revisit(body);
+    return { agent: raw.coach, reply: r.reply, changed: r.changed || [], profile: normalize(r.profile), missing: missingBasics(r.profile), done: Boolean(r.done) };
+  }
   const missing = missingBasics(body.profile);
   if (missing.length > 0) {
     const r = await intake(body);

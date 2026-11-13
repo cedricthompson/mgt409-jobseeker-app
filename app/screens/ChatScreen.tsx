@@ -12,11 +12,14 @@ import Avatar from '../components/Avatar';
 import Brand from '../components/Brand';
 
 type Msg = { role: 'user' | 'assistant'; content: string; why?: string; agent?: string };
-type ChatReply = { agent: 'intake' | 'gap'; reply: string; why?: string; profile: Profile; missing: string[]; done: boolean };
+type ChatReply = { agent: string; reply: string; why?: string; profile: Profile; missing: string[]; done: boolean };
 
-export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
-  profile: Profile; prefs: Prefs; onBack: () => void; onDone: (p: Profile) => void;
+// With `coach`, the applicant came back from their matches to talk with one coach (Maya, Theo, Jordan, Priya, or
+// Marcus) and update their profile; `context` summarizes their current matches for that coach.
+export default function ChatScreen({ profile: start, prefs, coach, context, onBack, onDone }: {
+  profile: Profile; prefs: Prefs; coach?: string; context?: string; onBack: () => void; onDone: (p: Profile) => void;
 }) {
+  const revisiting = coachFor(coach);
   const [profile, setProfile] = useState<Profile>(start);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState('');
@@ -32,6 +35,7 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
     try {
       const r = await post<ChatReply>('/api/profile-chat', {
         profile, prefs, messages: history.map(({ role, content, agent }) => ({ role, content, agent })),
+        ...(revisiting ? { coach: revisiting.key, context } : {}),
       });
       setProfile(r.profile);
       setMessages([...history, { role: 'assistant', content: r.reply, why: r.why, agent: r.agent }]);
@@ -72,8 +76,16 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
           <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
             <Text style={styles.backText}>‹ Back</Text>
           </Pressable>
-          <Text style={styles.title} role="heading" aria-level={1}>Complete your profile</Text>
-          {messages.length > 0 && !done && (
+          <Text style={styles.title} role="heading" aria-level={1}>
+            {revisiting ? `Talk with ${revisiting.name}, your ${revisiting.role}` : 'Complete your profile'}
+          </Text>
+          {revisiting && messages.length > 1 && !done && (
+            <Pressable onPress={() => onDone(profile)} disabled={loading} accessibilityRole="button"
+              accessibilityLabel="Save my changes and update my job matches" style={styles.back}>
+              <Text style={styles.backText}>Update my matches ›</Text>
+            </Pressable>
+          )}
+          {!revisiting && messages.length > 0 && !done && (
             <Pressable
               onPress={() => onDone(profile)}
               disabled={loading}
@@ -123,8 +135,9 @@ export default function ChatScreen({ profile: start, prefs, onBack, onDone }: {
             {error ? <Text style={styles.error} role="alert">{error}</Text> : null}
           </View>
           {done && (
-            <Pressable style={styles.cta} onPress={() => onDone(profile)} accessibilityRole="button" accessibilityLabel="See my job matches">
-              <Text style={styles.ctaText}>See my job matches</Text>
+            <Pressable style={styles.cta} onPress={() => onDone(profile)} accessibilityRole="button"
+              accessibilityLabel={revisiting ? 'Update my job matches' : 'See my job matches'}>
+              <Text style={styles.ctaText}>{revisiting ? 'Update my job matches' : 'See my job matches'}</Text>
             </Pressable>
           )}
         </ScrollView>

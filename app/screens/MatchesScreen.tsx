@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { post, Prefs, Profile } from '../api';
 import { colors, radius, space, type, themed } from '../theme';
 import { useTracker } from '../tracker';
@@ -8,6 +8,7 @@ import { Card, ChancesHeadline } from '../components/Chances';
 import WhyScore from '../components/WhyScore';
 import SearchElsewhere from '../components/SearchElsewhere';
 import Brand from '../components/Brand';
+import CoachKey from '../components/CoachKey';
 
 type Job = { id: string; hiring_now?: boolean; title: string; company?: string; city?: string; pay_min?: number; pay_max?: number; pay_estimated?: boolean; pay_text?: string; url?: string; source?: string };
 type Match = { id: string; fit: 'strong' | 'good' | 'stretch'; why: string; gaps: string[]; job: Job; card?: Card };
@@ -23,10 +24,11 @@ export const MATCH_MIN_HIRE = 50;
 const qualifies = (c?: Card) => (c?.predictions.interview ?? 0) >= MATCH_MIN_INTERVIEW && (c?.predictions.hire ?? 0) >= MATCH_MIN_HIRE;
 const money = (n?: number) => (n ? `$${Math.round(n).toLocaleString()}` : '');
 
-export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob, signedIn, onAccount }: {
+export default function MatchesScreen({ profile, prefs, onBack, onTracker, onCheckJob, signedIn, onAccount, onCoach }: {
   profile: Profile; prefs: Prefs; onBack: () => void; onTracker: () => void; onCheckJob: () => void;
-  signedIn: boolean; onAccount: () => void;
+  signedIn: boolean; onAccount: () => void; onCoach: (coach: string, context: string) => void;
 }) {
+  const wide = useWindowDimensions().width >= 1100; // coach key beside the list on wide screens, above it on phones
   const tracker = useTracker();
   const [step, setStep] = useState('Finding jobs near you…');
   const [matches, setMatches] = useState<Match[]>([]);
@@ -112,9 +114,26 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
   const good = matches.filter((m) => qualifies(cards[m.id])).sort((a, b) => both(b) - both(a));
   const scored = !step && considered > 0;
 
+  // A short summary of the scored jobs for the coach the applicant opens (Priya uses it most): how many qualify,
+  // the fit areas that score lowest on average, and the skills jobs most often asked for that they're missing.
+  const coachContext = () => {
+    const all = Object.values(cards);
+    if (!all.length) return 'No jobs have been scored yet.';
+    const avg = (k: string) => { const v = all.map((c) => c.parts[k]?.score).filter((x): x is number => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; };
+    const areas = ['skills', 'credentials', 'experience', 'pay', 'commute'].map((k) => [k, avg(k)] as const).filter(([, v]) => v != null).sort((a, b) => (a[1] as number) - (b[1] as number));
+    const missing = new Map<string, number>();
+    for (const c of all) for (const r of c.requirements ?? []) if (!r.have) missing.set(r.skill, (missing.get(r.skill) ?? 0) + 1);
+    const top = [...missing.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, n]) => `${k} (${n} jobs)`);
+    const chances = all.map((c) => c.predictions.interview ?? 0);
+    return `${all.length} jobs scored; ${good.length} meet the 50% interview and offer bar. Average interview chance ${Math.round(chances.reduce((a, b) => a + b, 0) / chances.length)}%. ` +
+      `Lowest-scoring areas on average: ${areas.slice(0, 3).map(([k, v]) => `${k} ${v}%`).join(', ')}. Skills jobs asked for that they're missing: ${top.join(', ') || 'none'}.`;
+  };
+  const openCoach = (coach: string) => onCoach(coach, coachContext());
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.layout}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.container}>
         <Brand />
         <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to profile chat" style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
@@ -125,6 +144,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
             <Text style={styles.backText}>My applications ({tracker.items.length}) ›</Text>
           </Pressable>
         </View>
+        {!wide && <CoachKey wide={false} onCoach={openCoach} />}
         {!step && considered > 0 && (
           <Pressable onPress={() => search(true)} accessibilityRole="button" accessibilityLabel="Search again for new jobs" style={styles.back}>
             <Text style={styles.backText}>↻ Search again for new jobs</Text>
@@ -258,6 +278,8 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
           </Pressable>
         )}
       </ScrollView>
+      {wide && <View style={styles.side}><CoachKey wide onCoach={openCoach} /></View>}
+      </View>
     </SafeAreaView>
   );
 }
@@ -265,6 +287,8 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
 const styles = themed(() => ({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { padding: space.lg, gap: space.md, maxWidth: 820, width: '100%', alignSelf: 'center' },
+  layout: { flex: 1, flexDirection: 'row' },
+  side: { paddingTop: space.lg, paddingRight: space.lg },
   back: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start' },
   backText: { fontSize: 18, color: colors.blue, fontWeight: '600' },
   title: { ...type.title, color: colors.red },
