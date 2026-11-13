@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Image, Platform, Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, Animated, Platform, Pressable, SafeAreaView, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { colors, radius, space, type, themed } from '../theme';
 import { coachFor } from '../team';
 import Avatar from '../components/Avatar';
+import WorkScene, { SCENES } from '../components/WorkScene';
 import { APP_NAME, APP_TAGLINE } from '../brand';
 import Brand from '../components/Brand';
 import { START_METHODS, StartMethod } from '../start';
@@ -10,13 +11,6 @@ import { bell, keyClick, soundAvailable, unlockSound } from '../typingSound';
 import { PROMO_MINUTES } from '../components/Promo';
 import MiniScorecard from '../components/MiniScorecard';
 
-// Photos of job seekers for the opening page. Each needs alt text for screen readers.
-// Sources are listed in assets/people/CREDITS.md.
-const PHOTOS: { source: number; alt: string }[] = [
-  { source: require('../assets/people/food-service.jpg'), alt: 'A woman in an apron and gloves cooking at a food counter' },
-  { source: require('../assets/people/construction.jpg'), alt: 'A construction worker in a yellow hard hat taking a break on site' },
-  { source: require('../assets/people/office.jpg'), alt: 'A man working on a laptop at his desk' },
-];
 
 // Stories: written examples until real video testimonials are recorded.
 // To add a video later, record a 15-30 second clip with captions and add it here with the person's permission.
@@ -214,13 +208,12 @@ export default function WelcomeScreen({ onStart, onTracker, onCheckJob, onScorec
           </View>
         </View>
 
-        {PHOTOS.length > 0 && (
-          <View style={styles.photoGrid}>
-            {PHOTOS.map((p) => (
-              <Image key={p.alt} source={p.source} style={styles.photo} accessibilityLabel={p.alt} alt={p.alt} />
-            ))}
-          </View>
-        )}
+        {/* Cartoon scenes of people at work (food service, construction, office), drawn in code */}
+        <View style={styles.photoGrid}>
+          {SCENES.map((s) => (
+            <WorkScene key={s.kind} kind={s.kind} alt={s.alt} style={styles.photo} />
+          ))}
+        </View>
 
         {/* How it works: one vertical card per coach */}
         <View style={styles.section}>

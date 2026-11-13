@@ -44,11 +44,12 @@ Body text is never smaller than 16. All text scales with the device's text-size 
 - **Cards and panels:** tint background or 2pt blue border, 10pt corners, 16 to 24pt padding.
 - **Tap targets:** at least 48 by 48 points.
 
-## Photos
+## Photos and illustrations
 
+- The opening page uses cartoon illustrations drawn in code (`app/components/WorkScene.tsx`), in the same style as the coach portraits (`app/components/Avatar.tsx`). Every person drawn has a full head of hair.
 - Show real, diverse job seekers: a range of ages, races, genders, and abilities (including visible disabilities and mobility aids), and a range of jobs (trades, food service, healthcare, IT, office).
-- Every photo needs descriptive alt text.
-- Only use photos with a license that allows this use, and record the source in `app/assets/people/CREDITS.md`.
+- Every photo or illustration needs descriptive alt text.
+- Only use photos with a license that allows this use, and record the source in a CREDITS.md next to the photo.
 
 ## Voice
 
