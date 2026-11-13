@@ -186,12 +186,9 @@ export async function matchJobs({ profile = {}, session, prefs, round = 0, exclu
         console.error(`Scorecard failed for ${m.job.id}:`, err.message);
         return [];
       });
-      // Token saver: every scorecard call starts with the same instructions and applicant (~1,500 tokens), which
-      // the model provider bills at a lower "cached input" rate once it has seen them. Calls sent all at once
-      // can't reuse each other, so the first job is scored alone and the rest follow in parallel.
-      const first = picks.length > 1 ? await safely(picks[0]) : [];
-      const rest = picks.length > 1 ? picks.slice(1) : picks;
-      const cards = [...first, ...(await inParallel(rest, SCORE_PARALLEL, safely)).flat()];
+      // (Tried in Nov 2026: scoring the first job alone so the rest could reuse the provider's prompt cache. Measured
+      // 0 cached tokens, since the shared start of each call is only ~600 tokens plus the profile, so all jobs are scored at once.)
+      const cards = (await inParallel(picks, SCORE_PARALLEL, safely)).flat();
       step.score = t2();
       scored += cards.length;
       const byId = Object.fromEntries(cards.map((c) => [c.id, c]));
