@@ -29,8 +29,7 @@ The MGT 409 final project is due **November 23, 2026**.
 1. **Read sections 6–8 of the report** for voice; they were drafted for you.
 2. **Two one-pagers** you asked for: an invention summary for a patent/IP consult, and a checklist of each data source's
    commercial-use terms (JSearch, Adzuna, USAJobs, O\*NET, the course model key).
-3. **Render settings:** check the service's Instance Type (Settings → Instance Type) and update `render.yaml`, which
-   still says `plan: free`. To read the security log and the usage stats page (`/stats`), add `SECURITY_ADMIN_TOKEN` there (a long random password).
+3. **Render settings:** the service is on the Starter plan (always on) and `render.yaml` matches. To read the security log and the usage stats page (`/stats`), add `SECURITY_ADMIN_TOKEN` there (a long random password).
 4. **Small app fix:** when no jobs qualify, the matches page still says "The employers below are hiring…" but that list
    was removed.
 5. **Optional:** rerun `node server/eval/trace.js` so `evidence/trace.md` reflects the new matcher (uses model calls).

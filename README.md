@@ -6,7 +6,7 @@ an offer, and still being in the job a year later. People spend their time on th
 the ones that won't call back.
 
 **Live app:** https://chart-academy-career-coach.onrender.com
-(free hosting: the first visit after 15 idle minutes takes about 50 seconds to wake up)
+(always on: Render Starter plan)
 
 Web, iOS, and Android from one codebase (React Native + Expo). The web app is what's hosted.
 

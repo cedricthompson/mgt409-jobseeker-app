@@ -1,10 +1,11 @@
-# Render blueprint: one free web service that serves the web app and the API.
+# Render blueprint: one web service that serves the web app and the API.
+# Starter plan (about $7/month): always on, so the site never sleeps after 15 idle minutes like the free plan did.
 # Keys are entered in the Render dashboard, never committed.
 services:
   - type: web
     name: chart-academy-career-coach
     runtime: node
-    plan: free
+    plan: starter
     buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /api/health
