@@ -181,7 +181,7 @@ export default function MatchesScreen({ profile, prefs, onBack, onTracker, onChe
           <Text style={type.small}>
             {good.length
               ? `We checked ${considered} jobs. Showing ${good.length} where you have at least a ${MATCH_MIN_INTERVIEW}% chance of an interview and at least a ${MATCH_MIN_HIRE}% chance of an offer, best chances first.`
-              : `We checked ${considered} jobs near you, and none give you at least a ${MATCH_MIN_INTERVIEW}% chance of both an interview and an offer yet. ${nextRound != null ? 'Tap Keep looking to search further. ' : ''}Telling Theo more about the jobs you want, allowing a longer commute, or checking a job you found can help. The employers below are hiring for similar work and are worth contacting directly.`}
+              : `We checked ${considered} jobs near you, and none give you at least a ${MATCH_MIN_INTERVIEW}% chance of both an interview and an offer yet. ${nextRound != null ? 'Tap Keep looking to search further. ' : ''}Talking with a coach about the jobs you want, allowing a longer commute, or checking a job you found can help.`}
           </Text>
         )}
 

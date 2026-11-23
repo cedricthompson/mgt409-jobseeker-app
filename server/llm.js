@@ -1,4 +1,4 @@
-// Calls the course model via Portkey, caches answers, and tracks token use.
+// Calls the course model (via Portkey, or directly at OpenAI with an OpenAI key), caches answers, and tracks token use.
 import { createHash } from "node:crypto";
 import { mkdirSync, appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -7,6 +7,32 @@ import { HONEY } from "./security.js";
 
 const BASE_URL = process.env.PORTKEY_BASE_URL || "https://api.portkey.ai/v1";
 const MODEL = process.env.MODEL || "gpt-6-luna";
+const OPENAI_URL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+
+// Two ways to reach the model, both allowed by the course: the course key through Portkey (PORTKEY_API_KEY), or an
+// OpenAI key (OPENAI_API_KEY) straight to OpenAI. Portkey is tried first; if it rejects its key (for example, an
+// expired course key) or there is none, the OpenAI key is used, and the one that worked is remembered.
+const ROUTES = {
+  portkey: () => process.env.PORTKEY_API_KEY && { url: `${BASE_URL}/chat/completions`, headers: { "x-portkey-api-key": process.env.PORTKEY_API_KEY } },
+  openai: () => process.env.OPENAI_API_KEY && { url: `${OPENAI_URL}/chat/completions`, headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` } },
+};
+let preferred = "portkey";
+const routeOrder = () => [preferred, ...Object.keys(ROUTES).filter((r) => r !== preferred)].filter((r) => ROUTES[r]());
+export const modelRoute = () => routeOrder()[0] || "none";
+async function callModel(body) {
+  const order = routeOrder();
+  if (!order.length) throw new Error("No model key: add PORTKEY_API_KEY or OPENAI_API_KEY to .env (see .env.example).");
+  let res;
+  for (const [i, name] of order.entries()) {
+    const { url, headers } = ROUTES[name]();
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+    if (res.ok) { preferred = name; return res; }
+    // Only a rejected key moves on to the other route; any other error is reported as it is.
+    if (![401, 403].includes(res.status) || i === order.length - 1) return res;
+    console.warn(`${name} rejected its key (${res.status}); trying ${order[i + 1]}.`);
+  }
+  return res;
+}
 
 // Token tracking for the tokenomics section of the report: totals, per agent, and
 // per applicant session. Every call is also appended to logs/tokens.jsonl.
@@ -42,7 +68,7 @@ const cacheKey = (body) => createHash("sha256").update(JSON.stringify(body)).dig
 let effortSupported = true;
 let effortError = null;
 // Shown on /api/health: which model answers, and whether the speed setting is being used.
-export const modelStatus = () => ({ model: MODEL, effort: effortSupported ? "used" : `off: ${effortError}` });
+export const modelStatus = () => ({ model: MODEL, route: modelRoute(), effort: effortSupported ? "used" : `off: ${effortError}` });
 
 export async function chat(messages, { json = false, agent = "other", session = "anonymous", useCache = true, effort } = {}) {
   const body = { model: MODEL, messages, ...(json && { response_format: { type: "json_object" } }),
@@ -55,13 +81,7 @@ export async function chat(messages, { json = false, agent = "other", session = 
     return { text: hit.text, usage: hit.usage, cached: true };
   }
 
-  const apiKey = process.env.PORTKEY_API_KEY;
-  if (!apiKey) throw new Error("PORTKEY_API_KEY is missing. Copy .env.example to .env and add it.");
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-portkey-api-key": apiKey },
-    body: JSON.stringify(body),
-  });
+  const res = await callModel(body);
   if (!res.ok) {
     const detail = await res.text();
     if (body.reasoning_effort && res.status === 400 && /reasoning/i.test(detail)) {

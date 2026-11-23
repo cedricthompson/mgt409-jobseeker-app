@@ -1,4 +1,4 @@
-// Quick test that PORTKEY_API_KEY works: npm run check
+// Quick test that the model key works (PORTKEY_API_KEY, or OPENAI_API_KEY): npm run check
 import { chat } from "./llm.js";
 
 try {

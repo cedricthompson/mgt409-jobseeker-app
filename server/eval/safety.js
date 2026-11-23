@@ -108,7 +108,7 @@ await test("Secret files cannot be downloaded", "Request tries to escape the web
   const body = await (await fetch(`${url}/%2e%2e/%2e%2e/.env`)).text();
   // The real secrets must never appear. Since the booby traps were added, this path serves a bait file with FAKE values
   // (security.js) and blocks the caller; its contents are never printed here, so the fake key stays secret too.
-  const real = ["PORTKEY_API_KEY", "USAJOBS_API_KEY", "ADZUNA_APP_KEY", "JSEARCH_API_KEY", "DATABASE_URL"].map((k) => process.env[k]).filter((v) => v && v.length > 8);
+  const real = ["PORTKEY_API_KEY", "OPENAI_API_KEY", "USAJOBS_API_KEY", "ADZUNA_APP_KEY", "JSEARCH_API_KEY", "DATABASE_URL"].map((k) => process.env[k]).filter((v) => v && v.length > 8);
   const leaked = real.some((v) => body.includes(v));
   const what = body.startsWith("<!doctype html") ? "Server returned the app page, not the file." : /PORTKEY_API_KEY=/.test(body) ? "Server returned the bait file (fake values only) and flagged the caller." : "Server did not return the file.";
   return { pass: !leaked, evidence: `${what} Real keys in the response: ${leaked ? "YES" : "none"}.` };

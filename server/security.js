@@ -10,7 +10,7 @@ import { repoRoot } from "./env.js";
 
 const sha = (s) => createHash("sha256").update(String(s)).digest("hex");
 // A secret that is stable across restarts but never in the repo: derived from the model key, or set SECURITY_SECRET.
-const SECRET = process.env.SECURITY_SECRET || sha(`foresight-security:${process.env.PORTKEY_API_KEY || randomBytes(16).toString("hex")}`);
+const SECRET = process.env.SECURITY_SECRET || sha(`foresight-security:${process.env.PORTKEY_API_KEY || process.env.OPENAI_API_KEY || randomBytes(16).toString("hex")}`);
 const secretCode = (name, n = 10) => sha(`${SECRET}:${name}`).slice(0, n);
 
 // ---- Who is calling ----
