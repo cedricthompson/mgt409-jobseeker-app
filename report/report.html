@@ -208,7 +208,13 @@
     .toc { min-height: 0 !important; break-after: auto !important; }
     .toc li { padding: 3px 0 !important; font-size: 13px; }
     .references { break-before: page !important; }
+    /* The cover always fits on page 1: its padding and border count inside a fixed height,
+       so it can never spill onto a second (blank) page before the table of contents. */
+    .cover { box-sizing: border-box; min-height: 0 !important; height: 8.4in; break-inside: avoid; overflow: hidden; }
+    .repo-ref { break-inside: avoid; }
   }
+  .repo-ref { margin-top: 14px; padding: 10px 14px; border: 2px solid var(--blue); border-radius: 8px; background: var(--tint); }
+  .repo-ref code { font-size: 0.95em; }
   figure.beside { width: 46%; margin: 2px 0 8px; }
   figure.beside.right { float: right; margin-left: 16px; }
   figure.beside.left { float: left; margin-right: 16px; }
@@ -780,6 +786,8 @@
     <li id="ref9">U.S. Bureau of Labor Statistics. <em>Occupational Outlook Handbook</em>: Social and Human Service Assistants (median annual wage $45,930, May 2025), <a href="https://www.bls.gov/ooh/community-and-social-service/social-and-human-service-assistants.htm">bls.gov/ooh/community-and-social-service/social-and-human-service-assistants.htm</a>; and School and Career Counselors and Advisors (median annual wage $64,330, May 2025), <a href="https://www.bls.gov/ooh/community-and-social-service/school-and-career-counselors.htm">bls.gov/ooh/community-and-social-service/school-and-career-counselors.htm</a> (Section 7).</li>
     <li id="ref10">U.S. Bureau of Labor Statistics. <em>Employer Costs for Employee Compensation: June 2026</em>. Private industry: wages and salaries 70.0% and benefits 30.0% of total compensation. <a href="https://www.bls.gov/news.release/archives/ecec_09092026.htm">bls.gov/news.release/archives/ecec_09092026.htm</a> (Section 7).</li>
   </ol>
+  <p class="repo-ref"><strong>Project repository (public):</strong> <a href="https://github.com/cedricthompson/mgt409-jobseeker-app">https://github.com/cedricthompson/mgt409-jobseeker-app</a><br>
+  Clone: <code>git clone https://github.com/cedricthompson/mgt409-jobseeker-app.git</code></p>
 </section>
 
 </main>
